@@ -12,7 +12,7 @@ const NIGHT_HDR = './assets/hdr/sky_night_1k.hdr';
 const LERP_DURATION = 3.0;          // seconds
 
 const DAY = {
-  fog: { color: 0xc4d4e0, near: 60,  far: 280 },     // matches HDRI horizon haze
+  fog: { color: 0xc4d4e0, near: 80,  far: 380 },     // pushed far so distant roads readable
   sun: { color: 0xfff2d6, intensity: 1.2 },
   hemi: { sky: 0xc8dcef, ground: 0x4a5440, intensity: 0.40 },
   amb: { color: 0x9bb4cf, intensity: 0.15 },

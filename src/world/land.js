@@ -13,8 +13,8 @@ import * as THREE from 'three';
 // polygons is the ocean plate.
 
 const OCEAN_SIZE  = 4000;
-const LAND_COLOR  = 0x6f8c5b;
-const OCEAN_COLOR = 0x4a85a8;
+const LAND_COLOR  = 0x4f7242;            // saturated tropical green — pops against grey roads
+const OCEAN_COLOR = 0x3d75a0;            // deeper sea blue, less washed-out under HDRI
 const STITCH_EPS  = 1.2;            // world-units tolerance when joining ways
 const EDGE_EPS    = 40.0;           // generous — coast & road bbox slightly differ
 

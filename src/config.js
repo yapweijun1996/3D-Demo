@@ -21,7 +21,7 @@ export const CFG = {
     bodyColor:   0xd33340,                    // Singapore red (procedural fallback only)
     accentColor: 0xfbf3e2,
     rimColor:    0xc9c9d1,
-    spawn: [96, 1, 6],                        // Nicoll Highway / ECP interchange (lat 1.300, lng 103.870) — on road
+    spawn: [99, 1.5, 17],                     // exact ECP world coord from OSM (East Coast Parkway)
     accel: 26,
     brake: 32,
     reverseAccel: 11,
