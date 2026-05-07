@@ -6,6 +6,7 @@ import { bindInput } from './input.js';
 import { buildSky } from './world/sky.js';
 import { buildLighting } from './world/lighting.js';
 import { buildPlayground } from './world/playground.js';
+import { buildLand } from './world/land.js';
 import { buildRoads } from './world/roads.js';
 import { buildOSMRoads, projectLatLng } from './world/roads-osm.js';
 import { buildCoastline } from './world/coastline.js';
@@ -58,12 +59,13 @@ async function main() {
   // Procedural fallback first — replaced by HDRI when fetch resolves below.
   scene.environment = pmrem.fromScene(makeEnvScene(), 0.04).texture;
   // HDRI sky — Poly Haven CC0 (1k Radiance HDR ~1.4MB). Async, non-blocking.
+  // Doubles as scene.background so the sky behind fog matches PBR reflections.
   new RGBELoader().load('./assets/hdr/sky_1k.hdr', (hdrTex) => {
     hdrTex.mapping = THREE.EquirectangularReflectionMapping;
     const envRT = pmrem.fromEquirectangular(hdrTex);
     scene.environment = envRT.texture;
-    hdrTex.dispose();
-    console.log('[hdri] loaded — PBR reflections active');
+    scene.background = hdrTex;                 // real sky, not flat color
+    console.log('[hdri] loaded — PBR reflections + sky background active');
   }, undefined, (err) => console.warn('[hdri] load failed, keeping procedural env:', err));
 
   const camera = new THREE.PerspectiveCamera(CFG.camera.fov, innerWidth / innerHeight, CFG.camera.near, CFG.camera.far);
@@ -87,12 +89,16 @@ async function main() {
   const tickers = [];
   buildSky(scene);
   buildLighting(scene);
-  buildPlayground(scene);
-  // Try OSM first; fall back to handcrafted cross if fetch fails
+  // Try OSM first; fall back to handcrafted cross + flat grass if fetch fails
   const osm = await buildOSMRoads(scene);
-  if (!osm) buildRoads(scene);
   const proj = osm?.proj;
-  if (proj) await buildCoastline(scene, proj);
+  if (proj) {
+    buildLand(scene);                          // ocean plate + land plate (silhouette via coastline lines)
+    await buildCoastline(scene, proj);         // sand-colored coastline outline ON TOP of land
+  } else {
+    buildPlayground(scene);                    // fallback flat grass
+    buildRoads(scene);                         // fallback handcrafted cross
+  }
   buildWater(scene, tickers);
   tickers.push(...buildLandmarks(scene, proj));
   buildBuildings(scene, assets, proj);

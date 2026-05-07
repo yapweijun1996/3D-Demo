@@ -1,7 +1,7 @@
 // CFG — SSOT. Every tunable lives here.
 export const CFG = {
-  sky:    0xf0c9a8,                           // tropical dusk peach
-  fog:    { color: 0xf2c8a4, near: 120, far: 420 },
+  sky:    0x9cc1e0,                           // partly-cloudy SG day blue (fallback before HDRI loads)
+  fog:    { color: 0xb6cee0, near: 60, far: 280 },   // tighter haze — far roads soft-fade, no aliasing buzz
 
   camera: {
     fov: 58, near: 0.1, far: 900,
@@ -18,7 +18,7 @@ export const CFG = {
     bodyColor:   0xd33340,                    // Singapore red (procedural fallback only)
     accentColor: 0xfbf3e2,
     rimColor:    0xc9c9d1,
-    spawn: [-10, 1, -20],                     // Just north of Marina Bay, clear of landmarks (Bras Basah area)
+    spawn: [96, 1, 6],                        // Nicoll Highway / ECP interchange (lat 1.300, lng 103.870) — on road
     accel: 26,
     brake: 32,
     reverseAccel: 11,
@@ -107,12 +107,11 @@ export const CFG = {
   },
 
   lights: {
-    hemi:    { sky: 0xfbd9b0, ground: 0x4a5440, intensity: 0.55 },
-    sun:     { color: 0xffd9a0, intensity: 1.6, pos: [60, 90, 50],
-               // Shadow tuned for FPS (was mapSize:2048 frustum:90 = ~4x cost):
-               // smaller map + tighter frustum focused on play area where car actually is.
+    // Tuned for HDRI-lit daytime — HDRI provides ambient/fill, direct lights only add sun crispness.
+    hemi:    { sky: 0xc8dcef, ground: 0x4a5440, intensity: 0.40 },
+    sun:     { color: 0xfff2d6, intensity: 1.2, pos: [60, 90, 50],
                shadow: { mapSize: 1024, frustum: 55, near: 1, far: 220, bias: -0.0005 } },
-    ambient: { color: 0x7e90b6, intensity: 0.25 },
+    ambient: { color: 0x9bb4cf, intensity: 0.15 },
   },
 
   perf: {
