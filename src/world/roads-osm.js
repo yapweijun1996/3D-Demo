@@ -14,12 +14,13 @@ const LAT_TO_M = 111000;
 // Tier visual table — width in WORLD units, color, y-stack height (avoid z-fight).
 // Wider widths than reality so roads stay readable from a car-height camera.
 // Light-grey asphalt — high contrast against saturated green land.
+// DEBUG: force super-visible roads to confirm they actually render under the car.
 const TIERS = [
-  { t: 'motorway',  w: 6.0, color: 0x96969e, y: 0.40 },
-  { t: 'trunk',     w: 4.8, color: 0x9a9aa2, y: 0.36 },
-  { t: 'primary',   w: 3.6, color: 0xa0a0a8, y: 0.32 },
-  { t: 'secondary', w: 2.6, color: 0xa6a6ae, y: 0.28 },
-  { t: 'tertiary',  w: 1.8, color: 0xacacb4, y: 0.24 },
+  { t: 'motorway',  w: 12.0, color: 0xffee00, y: 1.0 },
+  { t: 'trunk',     w: 10.0, color: 0xff8800, y: 0.95 },
+  { t: 'primary',   w: 7.0,  color: 0xff00cc, y: 0.90 },
+  { t: 'secondary', w: 5.0,  color: 0x00ddff, y: 0.85 },
+  { t: 'tertiary',  w: 3.0,  color: 0x00ff66, y: 0.80 },
 ];
 
 let _proj = null;
