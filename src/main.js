@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CFG } from './config.js';
 import { bindInput } from './input.js';
 
-import { buildSky } from './world/sky.js';
+import { buildClouds } from './world/clouds.js';
 import { buildLighting } from './world/lighting.js';
 import { buildPlayground } from './world/playground.js';
 import { buildLand } from './world/land.js';
@@ -78,8 +78,9 @@ async function main() {
   splash.setProgress(0.4, 'building scene...');
   // Build all visuals + register legacy colliders for landmarks/cones/signs.
   const tickers = [];
-  // buildSky removed — was a dusk-gradient sphere that overrode scene.background.
-  // sky now comes from scene.background (plain blue Color) set by daynight-v2.
+  // sky comes from scene.background (plain blue Color) set by daynight-v2.
+  // Clouds = a few drifting alpha-textured planes overhead — gives day texture.
+  buildClouds(scene, tickers);
   const lights = buildLighting(scene);
   bindDayNight(scene, renderer, pmrem, lights, tickers);
   // Try OSM first; fall back to handcrafted cross + flat grass if fetch fails
