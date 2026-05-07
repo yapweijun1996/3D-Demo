@@ -33,6 +33,7 @@ import { createStats } from './ui/stats.js';
 import { createMinimap } from './ui/minimap.js';
 import { maybeBindTouchControls } from './ui/touch-controls.js';
 import { createSplash } from './ui/splash.js';
+import { createSpeedometer } from './ui/speedometer.js';
 
 import { buildPostFX } from './render/postfx.js';
 
@@ -148,6 +149,7 @@ async function main() {
   maybeBindTouchControls();
   const stats = createStats(renderer);
   const minimap = createMinimap(car, signs, osm?.minimapSegs);
+  const speedo = createSpeedometer();
 
   let now = 0;
   // Transition-only trigger: a sign fires only when the car CROSSES from outside
@@ -206,6 +208,7 @@ async function main() {
 
     postfx.render();
     minimap.tick();
+    speedo.tick(drive.state);
     stats.tick(dt, { physicsMs });
     requestAnimationFrame(frame);
   })();

@@ -180,4 +180,15 @@ export const CFG = {
       rollingBrake: 8,                        // tiny brake when no throttle (anti-coast-forever)
     },
   },
+
+  // Hold Shift = nitrous. Engine force scales while gauge has fuel.
+  // Gauge: 1.0 full, drains 1/burnSeconds per second held, recharges
+  // refillRate per second when released.
+  boost: {
+    multiplier:    2.0,         // engineForce × this while held
+    maxSpeedMul:   1.6,         // soft cap raise (kinematic only)
+    burnSeconds:   3.0,         // seconds of full burn from full gauge
+    refillRate:    0.35,        // gauge units / sec when released
+    rechargeDelay: 0.4,         // wait before refill starts (so tap-tap doesn't auto-refuel)
+  },
 };

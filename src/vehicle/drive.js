@@ -19,9 +19,12 @@ export function createDrive(carVisual, ctx) {
 // ---------- Physics drive (Rapier) ----------
 function createPhysicsDrive(carVisual, { carPhys }) {
   const D = CFG.physics.drive;
-  const P = CFG.physics;
+  const B = CFG.boost;
   const { vehicle, body } = carPhys;
   let steerCurrent = 0;
+  let boostGauge = 1.0;          // 0..1 fuel remaining
+  let refillCooldown = 0;        // seconds before refill can start
+  const state = { speedKmh: 0, boost: 1.0, boosting: false };
 
   function tick(dt) {
     let throttle = 0;
@@ -31,6 +34,17 @@ function createPhysicsDrive(carVisual, { carPhys }) {
     if (keys.left)  steerInput += 1;
     if (keys.right) steerInput -= 1;
 
+    // Boost gauge management — drain while held + throttling forward, refill otherwise
+    const wantBoost = keys.boost && boostGauge > 0 && throttle > 0;
+    if (wantBoost) {
+      boostGauge = Math.max(0, boostGauge - dt / B.burnSeconds);
+      refillCooldown = B.rechargeDelay;
+    } else {
+      if (refillCooldown > 0) refillCooldown = Math.max(0, refillCooldown - dt);
+      else boostGauge = Math.min(1, boostGauge + dt * B.refillRate);
+    }
+    const boostMul = wantBoost ? B.multiplier : 1.0;
+
     // Smooth steering toward target
     const steerTarget = steerInput * D.maxSteer;
     const k = Math.min(1, dt * D.steerSpeed);
@@ -38,7 +52,7 @@ function createPhysicsDrive(carVisual, { carPhys }) {
 
     // Engine + brake on rear wheels (RR=2, RL=3)
     const fwd = throttle > 0 ? 1 : (throttle < 0 ? -D.reverseFactor : 0);
-    const force = fwd * D.engineForce;
+    const force = fwd * D.engineForce * boostMul;
     let brake = 0;
     if (throttle === 0) brake = D.rollingBrake;
     // emergency brake when reversing intent against forward velocity
@@ -57,9 +71,14 @@ function createPhysicsDrive(carVisual, { carPhys }) {
 
     // Update vehicle (applies suspension forces to chassis)
     vehicle.updateVehicle(dt);
+
+    // Publish state for HUD (speed in km/h: linvel m/s × 3.6)
+    state.speedKmh = Math.sqrt(v.x * v.x + v.z * v.z) * 3.6;
+    state.boost = boostGauge;
+    state.boosting = wantBoost;
     // sync() runs in main.js AFTER world.step() so visual reads post-step body pose
   }
-  return { tick, sync: () => syncVisual(carVisual, carPhys) };
+  return { tick, sync: () => syncVisual(carVisual, carPhys), state };
 }
 
 const _q = new THREE.Quaternion();
@@ -96,7 +115,10 @@ function syncVisual(carVisual, carPhys) {
 // ---------- Kinematic drive (v0.2 fallback, no physics) ----------
 function createKinematicDrive(car) {
   const C = CFG.car;
+  const B = CFG.boost;
   let heading = 0, speed = 0, steerAngle = 0;
+  let boostGauge = 1.0, refillCooldown = 0;
+  const state = { speedKmh: 0, boost: 1.0, boosting: false };
 
   function tick(dt) {
     let throttle = 0;
@@ -106,7 +128,17 @@ function createKinematicDrive(car) {
     if (keys.left)  steer += 1;
     if (keys.right) steer -= 1;
 
-    if (throttle > 0) speed += C.accel * dt;
+    const wantBoost = keys.boost && boostGauge > 0 && throttle > 0;
+    if (wantBoost) {
+      boostGauge = Math.max(0, boostGauge - dt / B.burnSeconds);
+      refillCooldown = B.rechargeDelay;
+    } else {
+      if (refillCooldown > 0) refillCooldown = Math.max(0, refillCooldown - dt);
+      else boostGauge = Math.min(1, boostGauge + dt * B.refillRate);
+    }
+    const boostMul = wantBoost ? B.multiplier : 1.0;
+
+    if (throttle > 0) speed += C.accel * boostMul * dt;
     else if (throttle < 0) {
       if (speed > 0.5) speed -= C.brake * dt;
       else             speed -= C.reverseAccel * dt;
@@ -117,7 +149,8 @@ function createKinematicDrive(car) {
       else                       speed -= sign * rf;
     }
     speed *= Math.pow(C.drag, dt * 60);
-    speed = Math.max(C.maxReverse, Math.min(C.maxSpeed, speed));
+    const topSpeed = C.maxSpeed * (wantBoost ? B.maxSpeedMul : 1.0);
+    speed = Math.max(C.maxReverse, Math.min(topSpeed, speed));
 
     const speedRatio = Math.min(1, Math.abs(speed) / C.maxSpeed);
     const dynamicTurn = C.turnRate * (1 - (1 - C.turnFalloff) * speedRatio);
@@ -142,6 +175,10 @@ function createKinematicDrive(car) {
       w.tire.rotation.x -= spin;
       if (w.isFront) w.group.rotation.y = steerAngle;
     }
+
+    state.speedKmh = Math.abs(speed) * 3.6;
+    state.boost = boostGauge;
+    state.boosting = wantBoost;
   }
-  return { tick, sync: () => {} };                       // kinematic has no separate sync
+  return { tick, sync: () => {}, state };
 }
