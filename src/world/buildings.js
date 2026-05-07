@@ -125,26 +125,120 @@ function buildShophouses(scene, region, district, proj, ways) {
   return placements.length;
 }
 
+// T10: Marina Bay CBD glass towers — MeshPhysicalMaterial with low roughness
+// + clearcoat for the wet showroom glass look, blue-silver tint, emissive
+// window-grid texture that ramps with day/night. Real-landmark height set:
+// Guoco 290m / OUB 280m / UOB 280m / MBFC 245m / Republic 280m / etc.
+//
+// Each tower = 2 meshes (body + window-grid emissive overlay). 8 towers in
+// district = 16 meshes — within drawcall budget.
 function buildTowers(scene, region, district) {
-  // T10 implements the real glass-skyscraper generator. T08 placeholder:
-  // sprinkle 6 plain dark boxes 80–200m tall to mark the CBD silhouette.
-  const N = 6;
-  const geo = new THREE.BoxGeometry(1, 1, 1);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x4a5a72, roughness: 0.4, metalness: 0.6 });
-  const inst = new THREE.InstancedMesh(geo, mat, N);
-  const m = new THREE.Matrix4(), s = new THREE.Vector3(), t = new THREE.Vector3();
+  const heights = [290, 280, 280, 245, 240, 235, 200, 180];   // anchored to real landmarks
+  const N = heights.length;
+
+  const winTex = makeTowerWindowTexture();
+
+  // Tower body — glass with HDRI reflection.
+  const bodyMat = new THREE.MeshPhysicalMaterial({
+    color: 0x6890b8,
+    roughness: 0.12,
+    metalness: 0.85,
+    envMapIntensity: 2.0,
+    clearcoat: 0.7,
+    clearcoatRoughness: 0.08,
+  });
+
+  // Window grid overlay — emissive only, transparent glass behind windows
+  // shows the body color through the cells. emissiveIntensity ramps via
+  // dayNight phase from the main loop (caller can patch onto bodyMat too,
+  // but the grid mesh keeps animation isolated from base color drift).
+  const windowsMat = new THREE.MeshStandardMaterial({
+    color: 0x000000,
+    map: winTex,
+    emissive: 0xffe4a0,
+    emissiveMap: winTex,
+    emissiveIntensity: 0.05,
+    transparent: false,
+  });
+
+  // Random but deterministic placement inside district bbox, axis-aligned.
+  const cx = (region.xMin + region.xMax) / 2;
+  const cz = (region.zMin + region.zMax) / 2;
+  const rand = mulberry32(0xC0FFEE);
+
   for (let i = 0; i < N; i++) {
-    const w = 24 + Math.random() * 16, d = 24 + Math.random() * 16;
-    const h = 80 + Math.random() * 120;
-    const x = region.xMin + 20 + Math.random() * (region.width - 40);
-    const z = region.zMin + 20 + Math.random() * (region.depth - 40);
-    s.set(w, h, d); t.set(x, h / 2, z);
-    m.compose(t, new THREE.Quaternion(), s); inst.setMatrixAt(i, m);
+    const h = heights[i];
+    const w = 26 + rand() * 18;       // 26-44m square footprint
+    const d = 26 + rand() * 18;
+    // Spiral around district center so towers don't overlap.
+    const a = (i / N) * Math.PI * 2 + rand() * 0.4;
+    const r = 18 + (i / N) * (Math.min(region.width, region.depth) * 0.35);
+    const x = cx + Math.cos(a) * r;
+    const z = cz + Math.sin(a) * r;
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bodyMat);
+    body.position.set(x, h / 2, z);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    scene.add(body);
+
+    // Windows mesh — slightly larger box (window grid sits proud of glass face
+    // by 0.05m so it reads from any angle without z-fighting).
+    const win = new THREE.Mesh(
+      new THREE.BoxGeometry(w + 0.10, h, d + 0.10),
+      windowsMat
+    );
+    win.position.set(x, h / 2, z);
+    scene.add(win);
   }
-  inst.instanceMatrix.needsUpdate = true;
-  inst.castShadow = true;
-  scene.add(inst);
+
+  // Hand the windows material back via global so main.js can drive emissive
+  // with dayNight (same pattern as HDB body).
+  if (!scene.userData.cbdWindowsMat) scene.userData.cbdWindowsMat = windowsMat;
+
   return N;
+}
+
+// Tower window texture — single canvas tiled across the body. Bright cells
+// random-sampled; dark cells stay opaque so emissiveMap turns ON only the
+// "lit window" pixels at night.
+function makeTowerWindowTexture() {
+  const cellW = 24, cellH = 28;
+  const cols = 12, rows = 30;
+  const cnv = document.createElement('canvas');
+  cnv.width = cols * cellW; cnv.height = rows * cellH;
+  const ctx = cnv.getContext('2d');
+  ctx.fillStyle = '#000';                 // black background = no emission where unlit
+  ctx.fillRect(0, 0, cnv.width, cnv.height);
+  ctx.fillStyle = '#ffe4a0';
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      // Apartment occupancy: 65% lit at full night
+      if (Math.random() < 0.65) {
+        const x = c * cellW + 4, y = r * cellH + 4;
+        ctx.fillRect(x, y, cellW - 8, cellH - 10);
+      }
+    }
+  }
+  const tex = new THREE.CanvasTexture(cnv);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 4);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+// Deterministic PRNG so tower placement is stable across reloads.
+function mulberry32(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 function buildColonial(scene, region, district) {

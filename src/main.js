@@ -210,6 +210,10 @@ async function main() {
     if (buildings?.bodyMat) {
       buildings.bodyMat.emissiveIntensity = 0.05 + 1.75 * dayNight.phase;
     }
+    // CBD glass tower windows ramp on the same curve.
+    if (scene.userData.cbdWindowsMat) {
+      scene.userData.cbdWindowsMat.emissiveIntensity = 0.05 + 2.4 * dayNight.phase;
+    }
     if (lamps) lamps.tick(now, dayNight);
 
     postfx.render();
