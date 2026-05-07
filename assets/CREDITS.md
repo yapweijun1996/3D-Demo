@@ -6,7 +6,11 @@ All GLB models in this directory are **CC0** (Creative Commons Zero — public d
 
 | File | Source | License | Author / Pack |
 |---|---|---|---|
-| `cars/sedan.glb` | https://kenney.nl/assets/car-kit | CC0 | Kenney — Car Kit |
+| `cars/sedan.glb` | https://kenney.nl/assets/car-kit | CC0 | Kenney — Car Kit (default, 4-wheel-separate) |
+| `cars-quat/sedan.glb` | https://poly.pizza/m/HQ0hvRM2XR | CC0 | Quaternius — Cars Bundle (alternate, paired-wheel) |
+| `cars-pbr/ToyCar.glb` | https://github.com/KhronosGroup/glTF-Sample-Assets | CC-BY 4.0 | Khronos Group (PBR, baked wheels — kept for visual ref) |
+| `hdr/sky_1k.hdr` | https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky | CC0 | Poly Haven — Kloofendal puresky 1k (day) |
+| `hdr/sky_night_1k.hdr` | https://polyhaven.com/a/dikhololo_night | CC0 | Poly Haven — Dikhololo night 1k |
 | `cars/cone.glb` | https://kenney.nl/assets/car-kit | CC0 | Kenney — Car Kit |
 | `cars/Textures/colormap.png` | https://kenney.nl/assets/car-kit | CC0 | Kenney — Car Kit |
 | `buildings/building-type-c.glb` | https://kenney.nl/assets/city-kit-suburban | CC0 | Kenney — City Kit (Suburban) |

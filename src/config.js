@@ -13,8 +13,11 @@ export const CFG = {
 
   car: {
     useGLB: true,                             // load GLB sedan with separately-spinnable wheels
-    glbPath: './assets/glb/cars/sedan.glb',   // Kenney Car Kit sedan (172KB, body+4 wheels)
+    // Default = Kenney sedan (4 separate wheels — best Rapier match).
+    // Alternate = Quaternius './assets/glb/cars-quat/sedan.glb' (paired-wheel, glbScale ~0.5).
+    glbPath: './assets/glb/cars/sedan.glb',
     glbScale: 1.8,                            // 1u source → 1.8m world (gives ~2.7m wide × 4.6m long sedan)
+    glbFlipX: true,                           // Kenney +X=LEFT, Quaternius +X=RIGHT (set false for Quat)
     bodyColor:   0xd33340,                    // Singapore red (procedural fallback only)
     accentColor: 0xfbf3e2,
     rimColor:    0xc9c9d1,
