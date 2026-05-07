@@ -2,43 +2,73 @@ import * as THREE from 'three';
 import { loadGLB } from '../loaders/glb-cache.js';
 import { CFG } from '../config.js';
 
-// Load the Khronos ToyCar.glb (real PBR materials) and adapt as the player car.
-// ToyCar is a single mesh (no separate wheels) — wheel spinning is sacrificed
-// for a true PBR look (reflective paint, glass, fabric interior).
+// Load Kenney sedan.glb which has separate wheel meshes (named wheel-front-left
+// etc) that we extract into their own groups so drive.js can spin them.
 //
-// Returns same shape as buildCar: { group, wheels: [] }.
-// Empty wheels[] means drive.js sync gracefully no-ops on wheel transforms.
+// Returns { group, wheels: [{ group, tire, isFront }] } — same shape as procedural buildCar.
 export async function buildCarGLB(scene) {
   const C = CFG.car;
-  const group = new THREE.Group();
-  group.position.set(...C.spawn);
-  scene.add(group);
+  const path = C.glbPath || './assets/glb/cars/sedan.glb';
+  const scale = C.glbScale || 1.8;
+
+  const root = new THREE.Group();
+  root.position.set(...C.spawn);
+  scene.add(root);
 
   let gltf;
   try {
-    gltf = await loadGLB('./assets/glb/cars-pbr/ToyCar.glb');
+    gltf = await loadGLB(path);
   } catch (err) {
-    console.warn('[car-glb] failed to load ToyCar:', err);
+    console.warn('[car-glb] failed to load', path, err);
     return null;
   }
 
-  // ToyCar is a tiny ~3-toy-cm model — bake it to a real 4m sedan.
-  // Source bbox (from glb inspection): X 187u, Y 384u, Z 116u (Y is length).
-  // Re-orient so length aligns with +Z (drive direction) and height with +Y.
-  const wrap = gltf.scene.clone();
-  wrap.traverse(o => {
-    if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+  // Clone scene so multiple createDrive() calls (defensive) don't share geometry handles
+  const sceneCopy = gltf.scene.clone(true);
+
+  // Wrap to apply uniform scale + axis-fix
+  const wrap = new THREE.Group();
+  wrap.scale.setScalar(scale);
+  // Kenney sedan uses +X = LEFT convention (front-right has x=-0.3). Flip X to make +X=right.
+  wrap.scale.x *= -1;
+  root.add(wrap);
+
+  // Find body mesh + 4 wheel meshes by name
+  const wheels = [];
+  let bodyMesh = null;
+  const namedNodes = {};
+  sceneCopy.traverse(o => {
+    if (o.name === 'body') bodyMesh = o;
+    if (o.name?.startsWith('wheel-')) namedNodes[o.name] = o;
   });
-  // ToyCar's Y is forward in source frame → rotate -90° around X to make forward = +Z, up = +Y.
-  wrap.rotation.x = -Math.PI / 2;
-  // Scale to a clearly visible "real car" size — ~6m long for game-readable.
-  // 384 source-units * 0.018 = ~6.9m long, ~3.4m wide, ~2m tall.
-  wrap.scale.setScalar(0.018);
-  // Lift so wheels sit roughly on ground (ToyCar origin is offset).
-  wrap.position.y = 1.0;
 
-  group.add(wrap);
+  if (!bodyMesh) {
+    console.warn('[car-glb] no body mesh found, returning null');
+    return null;
+  }
 
-  // Provide an empty wheels array so drive.js sync does no per-wheel work
-  return { group, wheels: [] };
+  // Detach body from sceneCopy and add to wrap
+  if (bodyMesh.parent) bodyMesh.parent.remove(bodyMesh);
+  bodyMesh.castShadow = bodyMesh.receiveShadow = true;
+  wrap.add(bodyMesh);
+
+  // Extract each wheel into its own steering group + spinning tire
+  // Order matters: must match Rapier wheel anchor order (FR=0, FL=1, RR=2, RL=3)
+  const wheelOrder = ['wheel-front-right', 'wheel-front-left', 'wheel-back-right', 'wheel-back-left'];
+  for (const name of wheelOrder) {
+    const wheelMesh = namedNodes[name];
+    if (!wheelMesh) continue;
+    const localPos = wheelMesh.position.clone();
+    if (wheelMesh.parent) wheelMesh.parent.remove(wheelMesh);
+    wheelMesh.castShadow = true;
+    // wrap each wheel in a steering group that lives at the wheel's anchor point
+    const sg = new THREE.Group();
+    sg.position.copy(localPos);
+    wheelMesh.position.set(0, 0, 0);
+    sg.add(wheelMesh);
+    wrap.add(sg);
+    wheels.push({ group: sg, tire: wheelMesh, isFront: name.startsWith('wheel-front'), name });
+  }
+
+  return { group: root, wheels };
 }

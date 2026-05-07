@@ -12,7 +12,9 @@ export const CFG = {
   },
 
   car: {
-    useGLB: true,                             // R2: load PBR ToyCar.glb (5.8MB) instead of procedural
+    useGLB: true,                             // load GLB sedan with separately-spinnable wheels
+    glbPath: './assets/glb/cars/sedan.glb',   // Kenney Car Kit sedan (172KB, body+4 wheels)
+    glbScale: 1.8,                            // 1u source → 1.8m world (gives ~2.7m wide × 4.6m long sedan)
     bodyColor:   0xd33340,                    // Singapore red (procedural fallback only)
     accentColor: 0xfbf3e2,
     rimColor:    0xc9c9d1,
@@ -122,24 +124,25 @@ export const CFG = {
     enabled: true,                            // false → fall back to kinematic drive (v0.2)
     gravity: -9.82,
     chassis: {
-      halfExtents: [0.95, 0.4, 1.7],          // collider half-size
+      halfExtents: [1.30, 0.55, 2.20],        // matches Kenney sedan @ scale 1.8 (~2.6w × 1.1h × 4.4l)
       mass: 900,
-      linearDamping: 0.25,                    // less drag (was 0.4 — felt sluggish)
+      linearDamping: 0.25,
       angularDamping: 0.7,
-      visualOffsetY: 0.85,                    // body center → visual group origin offset
+      visualOffsetY: 1.0,                     // body center → visual group origin (Kenney body is 0–2.07m, mid ~1.0)
     },
     wheel: {
-      suspensionRest: 0.22,                   // shorter rest (was 0.30 — car sat too high)
-      suspensionMaxTravel: 0.18,              // less travel (was 0.30 — too soft, body roll too much)
-      suspensionStiffness: 50,                // stiffer (was 30 — felt floaty)
-      frictionSlip: 2.4,                      // more grip (was 1.6 — felt slippy)
-      sideFrictionStiffness: 1.5,             // more lateral grip (was 1.0)
+      suspensionRest: 0.22,
+      suspensionMaxTravel: 0.18,
+      suspensionStiffness: 50,
+      frictionSlip: 2.4,
+      sideFrictionStiffness: 1.5,
       radius: 0.40,
+      // Anchors aligned to Kenney sedan wheel positions @ scale 1.8: ±0.54 X, ±1.19 Z
       anchors: [
-        [ 0.92, -0.2,  1.05, true ],          // FR
-        [-0.92, -0.2,  1.05, true ],          // FL
-        [ 0.92, -0.2, -1.05, false],          // RR
-        [-0.92, -0.2, -1.05, false],          // RL
+        [ 0.54, -0.45,  1.19, true ],         // FR
+        [-0.54, -0.45,  1.19, true ],         // FL
+        [ 0.54, -0.45, -1.19, false],         // RR
+        [-0.54, -0.45, -1.19, false],         // RL
       ],
     },
     drive: {
