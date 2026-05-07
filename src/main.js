@@ -21,6 +21,8 @@ import { initPhysics, stepPhysics } from './physics/rapier-world.js';
 import { buildStaticColliders } from './physics/static-colliders.js';
 import { buildCarVehicle } from './physics/car-vehicle.js';
 
+import { loadAll } from './loaders/glb-cache.js';
+
 import { openModal, closeModal, isOpen } from './ui/modal.js';
 import { createStats } from './ui/stats.js';
 import { createMinimap } from './ui/minimap.js';
@@ -52,6 +54,21 @@ async function main() {
 
   const camera = new THREE.PerspectiveCamera(CFG.camera.fov, innerWidth / innerHeight, CFG.camera.near, CFG.camera.far);
 
+  // Pre-load CC0 GLB assets in parallel BEFORE builders run. Failures fall back to procedural.
+  splash.setProgress(0.15, 'loading 3D models...');
+  let assets = {};
+  try {
+    assets = await loadAll([
+      './assets/glb/cars/sedan.glb',
+      './assets/glb/cars/cone.glb',
+      './assets/glb/buildings/building-type-c.glb',
+      './assets/glb/buildings/building-type-e.glb',
+    ], (n, total) => splash.setProgress(0.15 + 0.20 * n / total, `models ${n}/${total}`));
+  } catch (err) {
+    console.warn('[assets] some GLB failed to load, using procedural fallbacks:', err);
+  }
+
+  splash.setProgress(0.4, 'building scene...');
   // Build all visuals + register legacy colliders for landmarks/cones/signs.
   const tickers = [];
   buildSky(scene);
@@ -60,14 +77,13 @@ async function main() {
   buildRoads(scene);
   buildWater(scene, tickers);
   tickers.push(...buildLandmarks(scene));
-  buildBuildings(scene);
+  buildBuildings(scene, assets);
   buildPalms(scene);
-  buildCones(scene);
+  buildCones(scene, assets);
   const signs = buildSigns(scene);
 
   const car = buildCar(scene);
 
-  splash.setProgress(0.4, 'building scene...');
   // Physics — try to init Rapier; on failure, fall back to kinematic v0.2 drive.
   let physicsReady = false, carPhys = null, RAPIER = null, world = null;
   if (CFG.physics.enabled) {

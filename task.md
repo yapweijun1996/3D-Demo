@@ -58,15 +58,15 @@
 - [x] B.1 `loaders/glb-cache.js` — Promise-cached `loadGLB(path)` + `loadAll(paths, onProgress)`
 - [x] B.2 `loaders/instance-from-glb.js` — `instanceFromGLB(gltf, matrices[])` + `matricesFromPlacements`
 - [ ] B.3 `scripts/fetch-assets.sh` — curl + unzip CC0 packs (deferred, needs verified URLs)
-- [ ] B.4 `assets/glb/sedan.glb` (Kenney Vehicle Kit)
-- [ ] B.5 `assets/glb/palm.glb` (Quaternius Tropical)
-- [ ] B.6 `assets/glb/building_tower.glb` (Kenney City Kit)
-- [ ] B.7 `assets/glb/cone.glb` (Kenney Construction)
-- [ ] B.8 `assets/glb/lamppost.glb` (Kenney City Kit, for Phase D)
+- [x] B.4 `assets/glb/cars/sedan.glb` (Kenney Car Kit, 172 KB)
+- [ ] B.5 `assets/glb/palm.glb` (deferred — poly.pizza modal not script-friendly)
+- [x] B.6 `assets/glb/buildings/building-type-c.glb` + `e.glb` (Kenney City Suburban)
+- [x] B.7 `assets/glb/cars/cone.glb` (Kenney Car Kit, 16 KB)
+- [ ] B.8 `assets/glb/lamppost.glb` (deferred to Phase D)
 - [x] B.9 `assets/CREDITS.md` — placeholder with source URLs (entries marked _(pending)_ until B.4-B.8 lands GLB files)
-- [ ] B.10 Replace `palms.js` builder with GLB instance call
-- [ ] B.11 Replace `buildings.js` builder with GLB instance call
-- [ ] B.12 Replace `cones.js` builder with GLB instance call
+- [ ] B.10 Replace `palms.js` builder with GLB instance call (no GLB asset yet)
+- [x] B.11 Replace `buildings.js` builder with GLB instance call (alternates 2 variants)
+- [x] B.12 Replace `cones.js` builder with GLB instance call (with procedural fallback)
 - [ ] B.13 Replace `vehicle/car.js` chassis with GLB sedan, align Rapier wheel anchors
 - [x] B.14 `ui/splash.js` — loading bar wired to physics init progress
 - [ ] B.15 Verify: bundle ≤ 5MB, drawcalls ≤ 30, all CC0 credited

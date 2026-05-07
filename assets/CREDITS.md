@@ -6,11 +6,14 @@ All GLB models in this directory are **CC0** (Creative Commons Zero — public d
 
 | File | Source | License | Author / Pack |
 |---|---|---|---|
-| _(pending)_ sedan.glb | https://kenney.nl/assets/car-kit | CC0 | Kenney — Car Kit |
-| _(pending)_ palm.glb | https://quaternius.com/packs/ultimatenature.html | CC0 | Quaternius — Ultimate Nature |
-| _(pending)_ building_tower.glb | https://kenney.nl/assets/city-kit-suburban | CC0 | Kenney — City Kit (Suburban) |
-| _(pending)_ cone.glb | https://kenney.nl/assets/construction-kit | CC0 | Kenney — Construction Kit |
-| _(pending)_ lamppost.glb | https://kenney.nl/assets/city-kit-roads | CC0 | Kenney — City Kit (Roads) |
+| `cars/sedan.glb` | https://kenney.nl/assets/car-kit | CC0 | Kenney — Car Kit |
+| `cars/cone.glb` | https://kenney.nl/assets/car-kit | CC0 | Kenney — Car Kit |
+| `cars/Textures/colormap.png` | https://kenney.nl/assets/car-kit | CC0 | Kenney — Car Kit |
+| `buildings/building-type-c.glb` | https://kenney.nl/assets/city-kit-suburban | CC0 | Kenney — City Kit (Suburban) |
+| `buildings/building-type-e.glb` | https://kenney.nl/assets/city-kit-suburban | CC0 | Kenney — City Kit (Suburban) |
+| `buildings/Textures/colormap.png` | https://kenney.nl/assets/city-kit-suburban | CC0 | Kenney — City Kit (Suburban) |
+| _(pending)_ palm.glb | poly.pizza Quaternius | CC0 | (deferred — modal download not script-friendly) |
+| _(pending)_ lamppost.glb | https://kenney.nl/assets/city-kit-roads | CC0 | (deferred to Phase D for night cycle) |
 
 ## How to populate this directory
 
