@@ -16,8 +16,27 @@ All GLB models in this directory are **CC0** (Creative Commons Zero — public d
 | `buildings/building-type-c.glb` | https://kenney.nl/assets/city-kit-suburban | CC0 | Kenney — City Kit (Suburban) |
 | `buildings/building-type-e.glb` | https://kenney.nl/assets/city-kit-suburban | CC0 | Kenney — City Kit (Suburban) |
 | `buildings/Textures/colormap.png` | https://kenney.nl/assets/city-kit-suburban | CC0 | Kenney — City Kit (Suburban) |
-| _(pending)_ palm.glb | poly.pizza Quaternius | CC0 | (deferred — modal download not script-friendly) |
-| _(pending)_ lamppost.glb | https://kenney.nl/assets/city-kit-roads | CC0 | (deferred to Phase D for night cycle) |
+
+## Procedural assets (no GLB)
+
+The following are generated in code from BoxGeometry / CylinderGeometry / etc. — chosen over CC0 GLB sources because (a) zip mirrors aren't script-friendly, (b) procedural variants give more visual control per district, and (c) the silhouette is what reads from a moving car, not per-tree mesh fidelity.
+
+| Element | Where | Notes |
+|---|---|---|
+| Palm trees | src/world/palms.js | Cylinder trunk + radial leaf planes. T07 upgrades to InstancedMesh + scale jitter. |
+| Street lamps | src/world/street-furniture.js (T06) | Pole + lamp head, emissive at night. |
+| Bus stops | src/world/street-furniture.js (T06) | Box shelter + roof. |
+| Shophouses | src/world/buildings.js (T09) | Box base + pitched roof + pastel paint variants. |
+| CBD towers | src/world/buildings.js (T10) | Box body + glass PBR + emissive window grid. |
+
+## Textures (PBR)
+
+| Path | Source | License |
+|---|---|---|
+| `textures/ground/grass_*` | https://polyhaven.com/a/aerial_grass_rock | CC0 |
+| `textures/road/asphalt_*` | https://polyhaven.com/a/asphalt_02 | CC0 |
+| `textures/sand/sand_*` | https://polyhaven.com/a/coast_sand_rocks_02 | CC0 |
+| `textures/sidewalk/concrete_*` (T04) | https://polyhaven.com/a/concrete_floor_02 | CC0 |
 
 ## How to populate this directory
 
