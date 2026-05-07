@@ -6,9 +6,11 @@ import { instanceFromGLB, matricesFromPlacements } from '../loaders/instance-fro
 // Tampines, Jurong East, Woodlands), via projectLatLng from roads-osm.
 // Falls back to one big procedural ring if proj not available.
 export function buildBuildings(scene, assets, proj) {
-  if (proj) buildHDBClusters(scene, proj);
-  else      buildHDBFallbackRing(scene);
+  const lit = proj ? buildHDBClusters(scene, proj) : buildHDBFallbackRing(scene);
   buildSuburbRing(scene, assets, proj);
+  // Caller reads `lit.bodyMat.emissiveIntensity` each frame to drive
+  // window-glow with day/night phase. Daytime ≈ 0.05, night ≈ 1.8.
+  return lit;
 }
 
 function buildHDBClusters(scene, proj) {
@@ -68,6 +70,7 @@ function buildHDBClusters(scene, proj) {
   bodies.castShadow = false; bodies.receiveShadow = true;
   caps.castShadow = false;
   scene.add(bodies); scene.add(caps);
+  return { bodyMat };
 }
 
 function buildHDBFallbackRing(scene) {
@@ -89,6 +92,7 @@ function buildHDBFallbackRing(scene) {
   }
   inst.instanceMatrix.needsUpdate = true;
   scene.add(inst);
+  return { bodyMat: mat };
 }
 
 function buildSuburbRing(scene, assets, proj) {

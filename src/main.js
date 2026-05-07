@@ -34,6 +34,8 @@ import { createMinimap } from './ui/minimap.js';
 import { maybeBindTouchControls } from './ui/touch-controls.js';
 import { createSplash } from './ui/splash.js';
 
+import { buildPostFX } from './render/postfx.js';
+
 async function main() {
   const splash = createSplash();
   splash.setProgress(0.05, 'initializing renderer...');
@@ -82,7 +84,7 @@ async function main() {
   // Clouds = a few drifting alpha-textured planes overhead — gives day texture.
   buildClouds(scene, tickers);
   const lights = buildLighting(scene);
-  bindDayNight(scene, renderer, pmrem, lights, tickers);
+  const dayNight = bindDayNight(scene, renderer, pmrem, lights, tickers);
   // Try OSM first; fall back to handcrafted cross + flat grass if fetch fails
   const osm = await buildOSMRoads(scene);
   const proj = osm?.proj;
@@ -95,7 +97,7 @@ async function main() {
   }
   buildWater(scene, tickers);
   tickers.push(...buildLandmarks(scene, proj));
-  buildBuildings(scene, assets, proj);
+  const buildings = buildBuildings(scene, assets, proj);
   buildPalms(scene);
   buildCones(scene, assets);
   const signs = buildSigns(scene, proj);
@@ -168,10 +170,13 @@ async function main() {
     if (e.code === 'Escape' && isOpen()) closeModal();
   });
 
+  const postfx = buildPostFX(renderer, scene, camera);
+
   addEventListener('resize', () => {
     renderer.setSize(innerWidth, innerHeight);
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
+    postfx.setSize(innerWidth, innerHeight);
   });
 
   const clock = new THREE.Clock();
@@ -194,7 +199,12 @@ async function main() {
     for (const tick of tickers) tick(now, dt);
     checkSignTriggers();
 
-    renderer.render(scene, camera);
+    // Drive HDB window glow with day/night phase — windows fade ON at dusk.
+    if (buildings?.bodyMat) {
+      buildings.bodyMat.emissiveIntensity = 0.05 + 1.75 * dayNight.phase;
+    }
+
+    postfx.render();
     minimap.tick();
     stats.tick(dt, { physicsMs });
     requestAnimationFrame(frame);

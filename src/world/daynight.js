@@ -131,5 +131,16 @@ export function bindDayNight(scene, renderer, pmrem, lights, tickers) {
     if (e.code === 'KeyT') startLerp(mode === 'day' ? 'night' : 'day');
   });
 
-  return { get mode() { return mode; }, get lerping() { return lerpT < 1; } };
+  return {
+    get mode() { return mode; },
+    get lerping() { return lerpT < 1; },
+    // 0 = full day, 1 = full night, smoothly eased during transitions.
+    // Buildings/lampposts read this each frame to drive emissive intensity
+    // so window-grid glow fades in with the sky going dark.
+    get phase() {
+      if (lerpT >= 1.0) return mode === 'night' ? 1 : 0;
+      const e = ease(lerpT);
+      return lerpTo === NIGHT ? e : 1 - e;
+    },
+  };
 }
