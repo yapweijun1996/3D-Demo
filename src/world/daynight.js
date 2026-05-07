@@ -41,13 +41,19 @@ export function bindDayNight(scene, renderer, pmrem, lights, tickers) {
       resolve({ bg: tex, env: envRT.texture });
     }, undefined, reject));
 
+  // Sky backgrounds — plain colors so HDRI sun-glow doesn't dominate the
+  // viewport.  HDRI textures are still used for environment (reflections),
+  // which is where they belong.
+  const DAY_SKY   = new THREE.Color(0x9cc8ea);          // tropical clear-sky blue
+  const NIGHT_SKY = new THREE.Color(0x05080f);          // deep night with hint of cloud
+
   Promise.all([ready(DAY_HDR), ready(NIGHT_HDR)]).then(([d, n]) => {
-    dayEnv = d.env; dayBg = d.bg;
-    nightEnv = n.env; nightBg = n.bg;
+    dayEnv = d.env; dayBg = DAY_SKY;
+    nightEnv = n.env; nightBg = NIGHT_SKY;
     scene.environment = dayEnv;
     scene.background = dayBg;
-    apply(DAY);                               // settle to day immediately
-    console.log('[daynight] both HDRIs cached, T to toggle');
+    apply(DAY);
+    console.log('[daynight] HDRIs cached for env reflections; sky bg = solid color');
   }).catch(err => console.warn('[daynight] HDRI load failed:', err));
 
   // Apply a settled state (no lerp).
