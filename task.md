@@ -111,8 +111,8 @@
 **Estimate**: 2.0–2.5 h · **LOC**: +250
 
 - [ ] F.1 `CFG.tier` table — auto-detect mobile UA
-- [ ] F.2 `ui/touch-controls.js` — virtual joystick + brake button
-- [ ] F.3 `index.html` viewport meta — `viewport-fit=cover`, `100dvh`
+- [x] F.2 `ui/touch-controls.js` — virtual joystick + brake button
+- [x] F.3 `index.html` viewport meta — `viewport-fit=cover`, `100dvh`, touch-action:none
 - [ ] F.4 iOS Safari quirks — antialias off + FXAA, mediump fallback
 - [ ] F.5 `?perf=low|high` URL override
 - [ ] F.6 Landscape orientation prompt (CSS overlay)

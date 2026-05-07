@@ -24,6 +24,7 @@ import { buildCarVehicle } from './physics/car-vehicle.js';
 import { openModal, closeModal, isOpen } from './ui/modal.js';
 import { createStats } from './ui/stats.js';
 import { createMinimap } from './ui/minimap.js';
+import { maybeBindTouchControls } from './ui/touch-controls.js';
 
 async function main() {
   const canvas = document.getElementById('c');
@@ -83,6 +84,7 @@ async function main() {
 
   bindInput();
   bindStartOverlay();
+  maybeBindTouchControls();
   const stats = createStats();
   const minimap = createMinimap(car, signs);
 
