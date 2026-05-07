@@ -6,6 +6,30 @@
 
 ---
 
+## ⭐ Phase R2 — Realism upgrade (in progress)
+
+Goal: 让 stylized 场景"刚好真"—— 不追完全照片级,只要金属漆反光、HDRI 天空、密路网、真新加坡几何。
+
+- [x] R2-1 ToyCar.glb 下载 (PBR 但 wheel baked,保留备用)
+- [x] R2-2 Swap car GLB 加载链路
+- [x] R2-3 切到 Kenney sedan(分离 wheel,真转)
+- [ ] R2-4 HDRI 天空(Poly Haven `kloofendal_48d_partly_cloudy_1k.hdr`) + 升级 sedan body 到 PBR 反射(metalness 0.6, envMapIntensity 1.0)
+- [ ] R2-5 浏览器实测 wheel 转动 + 反光正确
+- [ ] R2-6 (可选) 找 Sketchfab CC-BY 多轮 PBR sedan(需手动登录下载,先 skip)
+
+## ⭐ Phase D — Dense Singapore map (new, post-R2)
+
+Goal: 路、海岸、岛形要让人一眼认出 = "这是新加坡 CBD"。
+
+- [x] D.1 Re-fetch OSM:中心区 (1.246–1.351 lat, 103.787–103.915 lng) ≈ 11.7×14.3 km
+- [x] D.2 5 路 tier:motorway(531) trunk(1119) primary(4655) secondary(1913) tertiary(2200) — 总 10418 ways
+- [x] D.3 Re-fetch coastline:93 ways,同 bbox
+- [ ] D.4 Refactor `roads-osm.js`:5-tier 渲染 + 沥青色 + 中线
+- [ ] D.5 调 spawn 到中心区(新 world scale 下 Marina Bay 坐标)
+- [ ] D.6 Bounds 跟随新地图大小
+
+---
+
 ## Legend
 
 - `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked

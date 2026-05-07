@@ -18,7 +18,7 @@ export const CFG = {
     bodyColor:   0xd33340,                    // Singapore red (procedural fallback only)
     accentColor: 0xfbf3e2,
     rimColor:    0xc9c9d1,
-    spawn: [80, 0, 130],                      // near real Singapore city core (lat 1.290, lng 103.852 area)
+    spawn: [-10, 1, -20],                     // Just north of Marina Bay, clear of landmarks (Bras Basah area)
     accel: 26,
     brake: 32,
     reverseAccel: 11,

@@ -1,17 +1,25 @@
 import * as THREE from 'three';
 
-// Render Singapore's real motorway + trunk road network from OSM data.
-// Source: assets/data/sg-roads.json (Overpass API export, May 2026)
-// Output: 2 BufferGeometry meshes (motorway + trunk), 2 drawcalls total.
+// Render Singapore central road network from OSM data.
+// Source: assets/data/sg-roads.json (Overpass: 5 highway tiers,
+//   bbox 1.246–1.351 lat × 103.787–103.915 lng ≈ 11.7×14.3 km central SG).
+// Output: 5 BufferGeometry meshes (one per tier), 5 drawcalls total.
 //
-// Projection: equirectangular meter projection centered on bbox center,
-// scaled so the wider axis fits ±worldHalf. Aspect ratio preserved.
-//
-// Returns the projection helpers so other systems (landmarks) can use the
-// same lat/lng → x/z mapping.
+// Equirectangular projection scaled so the wider axis fits ±WORLD_HALF.
+// 1 world unit ≈ 22 m at this zoom — dense and recognisably SG.
 
 const WORLD_HALF = 320;
 const LAT_TO_M = 111000;
+
+// Tier visual table — width in WORLD units, color, y-stack height (avoid z-fight).
+// Wider widths than reality so roads stay readable from a car-height camera.
+const TIERS = [
+  { t: 'motorway',  w: 6.0, color: 0x2c2c32, y: 0.40 },
+  { t: 'trunk',     w: 4.8, color: 0x30303a, y: 0.36 },
+  { t: 'primary',   w: 3.6, color: 0x3a3a42, y: 0.32 },
+  { t: 'secondary', w: 2.6, color: 0x42424a, y: 0.28 },
+  { t: 'tertiary',  w: 1.8, color: 0x484850, y: 0.24 },
+];
 
 let _proj = null;
 
@@ -34,51 +42,60 @@ export async function buildOSMRoads(scene) {
   const heightM = (maxLat - minLat) * LAT_TO_M;
   const worldScale = (WORLD_HALF * 2) / Math.max(widthM, heightM);
 
-  // Singleton projection: lat/lng → world [x, z] (north = -z, east = +x)
+  // lat/lng → world [x, z] (north = -z, east = +x)
   _proj = (lat, lng) => {
     const dx = (lng - cLng) * lngToM;
     const dz = -(lat - cLat) * LAT_TO_M;
     return [dx * worldScale, dz * worldScale];
   };
 
-  const motorways = data.ways.filter(w => w.t === 'motorway');
-  const trunks    = data.ways.filter(w => w.t === 'trunk');
-
-  // Motorway: wider + near-white concrete color so roads stand out clearly
-  // against green grass under any lighting. Lifted well above grass to avoid z-fight.
-  const motorwayGeo = buildStripGeometry(motorways, _proj, 9.0);
-  const motorwayMat = new THREE.MeshBasicMaterial({ color: 0xd0d0d6 });
-  const motorwayMesh = new THREE.Mesh(motorwayGeo, motorwayMat);
-  motorwayMesh.position.y = 0.30;
-  scene.add(motorwayMesh);
-
-  // Trunk: slightly narrower, slightly tan (visible hierarchy from motorway)
-  const trunkGeo = buildStripGeometry(trunks, _proj, 6.0);
-  const trunkMat = new THREE.MeshBasicMaterial({ color: 0xc8b89a });
-  const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
-  trunkMesh.position.y = 0.25;
-  scene.add(trunkMesh);
-
-  // Pre-project all road points for minimap consumption (cheap — done once at boot)
   const minimapSegs = [];
-  for (const w of [...motorways, ...trunks]) {
-    const pts = w.g.map(([la, lo]) => _proj(la, lo));
-    for (let i = 0; i < pts.length - 1; i++) {
-      minimapSegs.push(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]);
+  let totalWays = 0;
+  const counts = {};
+
+  for (const tier of TIERS) {
+    const ways = data.ways.filter(w => w.t === tier.t);
+    counts[tier.t] = ways.length;
+    totalWays += ways.length;
+    if (!ways.length) continue;
+
+    const geo = buildStripGeometry(ways, _proj, tier.w);
+    const mat = new THREE.MeshBasicMaterial({ color: tier.color, fog: true });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = tier.y;
+    mesh.renderOrder = 1;
+    scene.add(mesh);
+
+    // Center stripe for motorway + trunk only — readable at distance.
+    if (tier.t === 'motorway' || tier.t === 'trunk') {
+      const stripeGeo = buildStripGeometry(ways, _proj, tier.w * 0.10);
+      const stripeMat = new THREE.MeshBasicMaterial({ color: 0xf2d96a, fog: true });
+      const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+      stripe.position.y = tier.y + 0.005;
+      stripe.renderOrder = 2;
+      scene.add(stripe);
+    }
+
+    // minimap segs — only major tiers (motorway/trunk/primary) to keep it readable
+    if (tier.t === 'motorway' || tier.t === 'trunk' || tier.t === 'primary') {
+      for (const w of ways) {
+        const pts = w.g.map(([la, lo]) => _proj(la, lo));
+        for (let i = 0; i < pts.length - 1; i++) {
+          minimapSegs.push(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]);
+        }
+      }
     }
   }
 
-  console.log(`[osm] ${motorways.length} motorways + ${trunks.length} trunks rendered, 2 drawcalls`);
+  console.log(`[osm] ${totalWays} ways, tiers:`, counts);
   return { proj: _proj, bbox: data.bbox, minimapSegs };
 }
 
-// Get the singleton projector (after buildOSMRoads has run).
 export function projectLatLng(lat, lng) {
   if (!_proj) throw new Error('projectLatLng called before buildOSMRoads');
   return _proj(lat, lng);
 }
 
-// Build a single BufferGeometry containing ribbon strips for all road segments.
 function buildStripGeometry(ways, project, width) {
   const positions = [];
   const indices = [];
@@ -93,7 +110,6 @@ function buildStripGeometry(ways, project, width) {
       const dx = x2 - x1, dz = z2 - z1;
       const len = Math.hypot(dx, dz);
       if (len < 0.05) continue;
-      // perpendicular in XZ plane
       const nx = -dz / len * halfW;
       const nz =  dx / len * halfW;
       positions.push(
@@ -110,6 +126,5 @@ function buildStripGeometry(ways, project, width) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
   geo.setIndex(indices);
-  geo.computeVertexNormals();
   return geo;
 }

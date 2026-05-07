@@ -82,7 +82,7 @@ function syncVisual(carVisual, carPhys) {
   // Sync visible wheels (skipped if car has none — e.g. GLB car with baked wheels)
   for (let i = 0; i < carVisual.wheels.length; i++) {
     const w = carVisual.wheels[i];
-    if (!w) continue;
+    if (!w?.group) continue;
     const wcp = vehicle.wheelChassisConnectionPointCs(i);
     const susp = vehicle.wheelSuspensionLength(i);
     w.group.position.set(wcp.x, wcp.y - susp + CFG.physics.chassis.visualOffsetY, wcp.z);

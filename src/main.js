@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { CFG } from './config.js';
 import { bindInput } from './input.js';
 
@@ -54,7 +55,16 @@ async function main() {
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
+  // Procedural fallback first — replaced by HDRI when fetch resolves below.
   scene.environment = pmrem.fromScene(makeEnvScene(), 0.04).texture;
+  // HDRI sky — Poly Haven CC0 (1k Radiance HDR ~1.4MB). Async, non-blocking.
+  new RGBELoader().load('./assets/hdr/sky_1k.hdr', (hdrTex) => {
+    hdrTex.mapping = THREE.EquirectangularReflectionMapping;
+    const envRT = pmrem.fromEquirectangular(hdrTex);
+    scene.environment = envRT.texture;
+    hdrTex.dispose();
+    console.log('[hdri] loaded — PBR reflections active');
+  }, undefined, (err) => console.warn('[hdri] load failed, keeping procedural env:', err));
 
   const camera = new THREE.PerspectiveCamera(CFG.camera.fov, innerWidth / innerHeight, CFG.camera.near, CFG.camera.far);
 

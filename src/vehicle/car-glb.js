@@ -50,6 +50,22 @@ export async function buildCarGLB(scene) {
   // Detach body from sceneCopy and add to wrap
   if (bodyMesh.parent) bodyMesh.parent.remove(bodyMesh);
   bodyMesh.castShadow = bodyMesh.receiveShadow = true;
+  // Upgrade body to metallic paint so HDRI gives clear coat reflections.
+  // Kenney GLB bakes color via vertex colors / textures — keep them, just
+  // tweak the standard material parameters.
+  bodyMesh.traverse(o => {
+    if (o.isMesh && o.material) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        if (m.isMeshStandardMaterial) {
+          m.metalness = 0.55;
+          m.roughness = 0.42;
+          m.envMapIntensity = 1.1;
+          m.needsUpdate = true;
+        }
+      }
+    }
+  });
   wrap.add(bodyMesh);
 
   // Extract each wheel into its own steering group + spinning tire
