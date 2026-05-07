@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Drive Singapore — v0.2</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#9cc8e8;overflow:hidden;font-family:system-ui,sans-serif;color:#fff;user-select:none}
+  canvas#c{display:block;width:100vw;height:100vh}
+
+  .hud{position:fixed;left:14px;bottom:14px;font-size:13px;line-height:1.6;text-shadow:0 1px 3px rgba(0,0,0,.55);pointer-events:none}
+  .hud kbd{display:inline-block;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.35);border-bottom-width:2px;border-radius:4px;padding:1px 7px;font-family:inherit;font-size:12px;margin:0 2px}
+
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,12,20,.55);backdrop-filter:blur(4px);cursor:pointer;transition:opacity .25s}
+  .overlay.hidden{opacity:0;pointer-events:none}
+  .overlay .panel{background:rgba(20,28,42,.92);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:32px 40px;text-align:center;box-shadow:0 16px 50px rgba(0,0,0,.5);max-width:420px}
+  .overlay h1{margin:0 0 8px;font-size:28px;letter-spacing:.04em}
+  .overlay .subtitle{margin:0 0 18px;font-size:14px;opacity:.75}
+  .overlay .keys{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:18px auto;max-width:280px;text-align:left;font-size:14px}
+  .overlay .keys b{font-family:ui-monospace,monospace}
+  .overlay .cta{margin-top:18px;font-size:13px;opacity:.65}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://esm.sh/three@0.170.0",
+    "three/addons/": "https://esm.sh/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud">
+  Drive: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · Close popup: <kbd>Esc</kbd>
+</div>
+<div class="overlay" id="overlay">
+  <div class="panel">
+    <h1>Drive Singapore</h1>
+    <p class="subtitle">A mini-tour of SG landmarks · Three.js</p>
+    <div class="keys">
+      <b>W / ↑</b><span>accelerate</span>
+      <b>S / ↓</b><span>brake / reverse</span>
+      <b>A / D</b><span>steer left / right</span>
+      <b>Esc</b><span>close popup</span>
+    </div>
+    <p class="cta">Click anywhere or press any key to start</p>
+  </div>
+</div>
+<script>
+  // Cache-bust the entry every page load — forces browser to fetch fresh main.js
+  // even when behind an aggressive proxy. Server still sends no-cache headers
+  // for inner module imports, so the whole graph stays current.
+  const __v = Date.now().toString(36);
+  const s = document.createElement('script');
+  s.type = 'module';
+  s.src = './src/main.js?v=' + __v;
+  document.body.appendChild(s);
+</script>
+</body>
+</html>
