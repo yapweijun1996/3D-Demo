@@ -9,22 +9,26 @@ export function createFollowCam(camera, car, getSpeed) {
   // Stiff critical-damped spring (k=30 → fast follow, no overshoot, no lag at speed)
   const stiffness = 30;
   const damping = 2 * Math.sqrt(stiffness);
-  const MAX_DRIFT = 14;                                  // hard tether: never let camera fall further than this from desired
+  const MAX_DRIFT = 14;
   const desired = new THREE.Vector3();
-  const vel = new THREE.Vector3();                       // camera velocity for spring
+  const vel = new THREE.Vector3();
   const lookTarget = new THREE.Vector3();
+  const fwd = new THREE.Vector3();                       // car world-forward (pulled fresh each frame)
   const baseFov = C.fov;
-  const fovMax = baseFov + 12;                            // +12° at top speed
+  const fovMax = baseFov + 12;
 
-  // initial snap
   camera.position.set(0, C.followHeight, C.followDistance + 5);
   camera.lookAt(0, 1, 0);
 
   function tick(dt) {
     const p = car.group.position;
-    const h = car.group.rotation.y;                      // yaw only — ignore pitch/roll on purpose
-    const fx = Math.sin(h), fz = Math.cos(h);
-    desired.set(p.x - fx * C.followDistance, p.y + C.followHeight, p.z - fz * C.followDistance);
+    // Extract car's world-forward by transforming (0,0,1) through full quaternion.
+    // This is correct even if car has body roll/pitch (Euler-Y extraction would be wrong).
+    fwd.set(0, 0, 1).applyQuaternion(car.group.quaternion);
+    const fx = fwd.x, fz = fwd.z;
+    const fLen = Math.hypot(fx, fz) || 1;                // re-normalize XZ projection (drop Y component)
+    const nfx = fx / fLen, nfz = fz / fLen;
+    desired.set(p.x - nfx * C.followDistance, p.y + C.followHeight, p.z - nfz * C.followDistance);
 
     // critical-damped spring — frame-rate independent, no bounce
     let dx = camera.position.x - desired.x;
@@ -37,19 +41,16 @@ export function createFollowCam(camera, car, getSpeed) {
     camera.position.y += vel.y * dt;
     camera.position.z += vel.z * dt;
 
-    // Snap-to-behind guard: if the camera ever ends up in FRONT of the car
-    // (e.g. mid-U-turn the spring is still chasing old position), teleport it
-    // back behind. Computed via dot(carToCam, carForward).
-    // carToCam · forward < 0 means cam is in front (forward points away from cam).
+    // Snap-to-behind guard with normalized forward.
+    // dot(camToCar_along_forward) > -3 means camera not behind enough → snap.
     const cx = camera.position.x - p.x;
     const cz = camera.position.z - p.z;
-    const dot = cx * fx + cz * fz;                       // forward = (fx, *, fz)
-    if (dot > -1) {                                      // any time cam is on front half
-      camera.position.x = p.x - fx * C.followDistance;
-      camera.position.z = p.z - fz * C.followDistance;
+    const dot = cx * nfx + cz * nfz;
+    if (dot > -3) {                                      // require camera at least 3m behind (along forward axis)
+      camera.position.x = p.x - nfx * C.followDistance;
+      camera.position.z = p.z - nfz * C.followDistance;
       vel.x = 0; vel.z = 0;
     } else {
-      // Normal hard tether for over-drift on the correct side
       dx = camera.position.x - desired.x;
       dz = camera.position.z - desired.z;
       const drift = Math.hypot(dx, dz);
@@ -62,7 +63,7 @@ export function createFollowCam(camera, car, getSpeed) {
     }
 
     // look ahead of the car along its forward direction
-    lookTarget.set(p.x + fx * C.lookAhead, p.y + 1.0, p.z + fz * C.lookAhead);
+    lookTarget.set(p.x + nfx * C.lookAhead, p.y + 1.0, p.z + nfz * C.lookAhead);
     camera.lookAt(lookTarget);
 
     // dynamic FOV based on speed — sense-of-speed without doing anything physical

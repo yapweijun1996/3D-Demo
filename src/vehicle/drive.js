@@ -4,12 +4,10 @@ import { keys } from '../input.js';
 import { resolve } from '../colliders.js';
 
 // drive.js — input → vehicle motion.
-// Two implementations:
-//   1) Physics drive (Rapier RaycastVehicle) — primary, when CFG.physics.enabled
-//   2) Kinematic drive (v0.2 fallback) — used when physics fails to load
-//
-// External signature is identical: createDrive(carVisual, ctx?) → { tick(dt) }.
-// `ctx` for physics path = { RAPIER, world, carPhys }.
+// Returns { tick(dt), sync() } when physics path; sync() must be called AFTER
+// world.step() so the visual reads post-integration body state (otherwise
+// camera sees a 1-frame-stale car pose).
+// Kinematic fallback returns sync as a no-op (everything happens in tick).
 
 export function createDrive(carVisual, ctx) {
   if (CFG.physics.enabled && ctx?.carPhys) {
@@ -59,11 +57,9 @@ function createPhysicsDrive(carVisual, { carPhys }) {
 
     // Update vehicle (applies suspension forces to chassis)
     vehicle.updateVehicle(dt);
-
-    // World step happens in main.js after this. Sync visuals from current body state.
-    syncVisual(carVisual, carPhys);
+    // sync() runs in main.js AFTER world.step() so visual reads post-step body pose
   }
-  return { tick };
+  return { tick, sync: () => syncVisual(carVisual, carPhys) };
 }
 
 const _q = new THREE.Quaternion();
@@ -146,5 +142,5 @@ function createKinematicDrive(car) {
       if (w.isFront) w.group.rotation.y = steerAngle;
     }
   }
-  return { tick };
+  return { tick, sync: () => {} };                       // kinematic has no separate sync
 }

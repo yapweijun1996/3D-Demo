@@ -161,14 +161,15 @@ async function main() {
 
     let physicsMs = 0;
     if (!isOpen()) {
-      drive.tick(dt);                          // applies inputs + updateVehicle (physics path)
+      drive.tick(dt);                          // inputs + updateVehicle (no sync yet)
       if (physicsReady) {
         const t0 = performance.now();
         stepPhysics();                         // integrate physics world
         physicsMs = performance.now() - t0;
       }
+      drive.sync();                            // visual sync from POST-step body state
     }
-    followCam(dt);
+    followCam(dt);                             // camera reads fresh car.group transform
     animateSigns(signs, now, camera);
     for (const tick of tickers) tick(now, dt);
     checkSignTriggers();
