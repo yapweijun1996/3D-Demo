@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CFG } from './config.js';
 import { bindInput } from './input.js';
 
-import { buildClouds } from './world/clouds-v3.js';
+import { buildClouds } from './world/clouds-v4.js';
 import { buildLighting } from './world/lighting.js';
 import { buildPlayground } from './world/playground.js';
 import { buildLand } from './world/land.js';

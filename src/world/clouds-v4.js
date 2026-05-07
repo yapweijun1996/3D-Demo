@@ -20,18 +20,15 @@ const DRIFT_SPEED_MIN = 0.6;
 const DRIFT_SPEED_MAX = 1.8;
 
 export function buildClouds(scene, tickers) {
-  console.log('[clouds] buildClouds called, tickers=', !!tickers);
   const tex = new THREE.CanvasTexture(makeCloudCanvas(256));
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
 
-  const geo = new THREE.PlaneGeometry(120, 70);
-  // No rotation — keep planes vertical so they're visible looking horizontally.
-  // Each instance gets random Y rotation around its center for variety.
-  // DEBUG: bright opaque red — verify geometry + positions render at all.
+  const geo = new THREE.PlaneGeometry(70, 28);
   const mat = new THREE.MeshBasicMaterial({
-    color: 0xff2222, side: THREE.DoubleSide,
+    map: tex, transparent: true, opacity: 0.92,
+    depthWrite: false, fog: false, side: THREE.DoubleSide,
   });
   const mesh = new THREE.InstancedMesh(geo, mat, COUNT);
   // Disable frustum culling: InstancedMesh frustum check uses the geometry
@@ -40,7 +37,6 @@ export function buildClouds(scene, tickers) {
   // even though individual instances are in view.
   mesh.frustumCulled = false;
   scene.add(mesh);
-  window.__clouds = mesh;
 
   const dummy = new THREE.Object3D();
   const speeds = new Float32Array(COUNT);
