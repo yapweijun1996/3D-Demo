@@ -7,6 +7,7 @@ import { buildLighting } from './world/lighting.js';
 import { buildPlayground } from './world/playground.js';
 import { buildRoads } from './world/roads.js';
 import { buildOSMRoads, projectLatLng } from './world/roads-osm.js';
+import { buildCoastline } from './world/coastline.js';
 import { buildWater } from './world/water.js';
 import { buildLandmarks } from './world/landmarks.js';
 import { buildBuildings } from './world/buildings.js';
@@ -79,12 +80,14 @@ async function main() {
   // Try OSM first; fall back to handcrafted cross if fetch fails
   const osm = await buildOSMRoads(scene);
   if (!osm) buildRoads(scene);
+  const proj = osm?.proj;
+  if (proj) await buildCoastline(scene, proj);
   buildWater(scene, tickers);
-  tickers.push(...buildLandmarks(scene));
-  buildBuildings(scene, assets);
+  tickers.push(...buildLandmarks(scene, proj));
+  buildBuildings(scene, assets, proj);
   buildPalms(scene);
   buildCones(scene, assets);
-  const signs = buildSigns(scene);
+  const signs = buildSigns(scene, proj);
 
   const car = buildCar(scene);
 

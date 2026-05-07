@@ -2,36 +2,32 @@ import * as THREE from 'three';
 import { CFG } from '../config.js';
 import { instanceFromGLB, matricesFromPlacements } from '../loaders/instance-from-glb.js';
 
-// 2-tier ring:
-//   Inner ring (HDB high-rises) — procedural tall blocks with window-grid emissive texture
-//   Outer ring (suburb) — Kenney City Suburban GLB houses for variety
-export function buildBuildings(scene, assets) {
-  buildHDBRing(scene);
-  buildSuburbRing(scene, assets);
+// HDB blocks placed at REAL Singapore neighborhoods (Toa Payoh, Bishan, Ang Mo Kio,
+// Tampines, Jurong East, Woodlands), via projectLatLng from roads-osm.
+// Falls back to one big procedural ring if proj not available.
+export function buildBuildings(scene, assets, proj) {
+  if (proj) buildHDBClusters(scene, proj);
+  else      buildHDBFallbackRing(scene);
+  buildSuburbRing(scene, assets, proj);
 }
 
-// ---------- HDB inner ring (procedural tall blocks) ----------
-function buildHDBRing(scene) {
-  const { count, ringRadius, ringJitter, minHeight, maxHeight, palette } = CFG.hdb;
+function buildHDBClusters(scene, proj) {
+  const { clusters, minHeight, maxHeight, palette } = CFG.hdb;
+  const totalCount = clusters.reduce((s, c) => s + c.count, 0);
   const winTex = makeWindowTexture(7, 22, 0.45);
 
-  // Each block: body cuboid + flat roof + small water-tank cube on top.
   const bodyGeo = new THREE.BoxGeometry(1, 1, 1);
   const capGeo = new THREE.BoxGeometry(1.04, 0.06, 1.04);
-  const tankGeo = new THREE.BoxGeometry(0.35, 0.18, 0.25);
 
   const bodyMat = new THREE.MeshStandardMaterial({
     map: winTex, emissiveMap: winTex, emissive: 0xffffff,
     emissiveIntensity: 0.30, roughness: 0.85,
   });
   const capMat = new THREE.MeshStandardMaterial({ color: 0x4a4650, roughness: 0.85 });
-  const tankMat = new THREE.MeshStandardMaterial({ color: 0x9a8e74, roughness: 0.7 });
 
-  const bodies = new THREE.InstancedMesh(bodyGeo, bodyMat, count);
-  const caps = new THREE.InstancedMesh(capGeo, capMat, count);
-  const tanks = new THREE.InstancedMesh(tankGeo, tankMat, count);
-  // Tinting per-instance via instanceColor — variety without N drawcalls
-  bodies.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3);
+  const bodies = new THREE.InstancedMesh(bodyGeo, bodyMat, totalCount);
+  const caps = new THREE.InstancedMesh(capGeo, capMat, totalCount);
+  bodies.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(totalCount * 3), 3);
 
   const m = new THREE.Matrix4();
   const e = new THREE.Euler();
@@ -39,44 +35,63 @@ function buildHDBRing(scene) {
   const t = new THREE.Vector3();
   const sV = new THREE.Vector3();
   const colTmp = new THREE.Color();
+  let i = 0;
 
-  for (let i = 0; i < count; i++) {
-    const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
-    const r = ringRadius + (Math.random() - 0.5) * ringJitter;
-    const w = 18 + Math.random() * 10;
-    const h = minHeight + Math.random() * (maxHeight - minHeight);
-    const d = 11 + Math.random() * 5;
-    const px = Math.cos(a) * r, pz = Math.sin(a) * r;
-    e.set(0, -a + Math.PI / 2, 0); q.setFromEuler(e);
+  for (const cluster of clusters) {
+    const [cx, cz] = proj(cluster.latLng[0], cluster.latLng[1]);
+    for (let k = 0; k < cluster.count; k++) {
+      // place around cluster center with small jitter
+      const a = (k / cluster.count) * Math.PI * 2 + Math.random() * 0.6;
+      const r = cluster.spread * (0.4 + Math.random() * 0.6);
+      const px = cx + Math.cos(a) * r;
+      const pz = cz + Math.sin(a) * r;
+      const w = 18 + Math.random() * 8;
+      const h = minHeight + Math.random() * (maxHeight - minHeight);
+      const d = 11 + Math.random() * 4;
+      const rot = Math.random() * Math.PI * 2;
 
-    // body
-    sV.set(w, h, d); t.set(px, h / 2, pz);
-    m.compose(t, q, sV); bodies.setMatrixAt(i, m);
+      e.set(0, rot, 0); q.setFromEuler(e);
+      sV.set(w, h, d); t.set(px, h / 2, pz);
+      m.compose(t, q, sV); bodies.setMatrixAt(i, m);
 
-    // cap
-    sV.set(w, 1, d); t.set(px, h, pz);
-    m.compose(t, q, sV); caps.setMatrixAt(i, m);
+      sV.set(w, 1, d); t.set(px, h, pz);
+      m.compose(t, q, sV); caps.setMatrixAt(i, m);
 
-    // water tank (bumpy roof detail)
-    sV.set(Math.min(w * 0.5, 8), h * 0.05, Math.min(d * 0.5, 5));
-    t.set(px, h + 0.18 + sV.y / 2, pz);
-    m.compose(t, q, sV); tanks.setMatrixAt(i, m);
-
-    colTmp.set(palette[i % palette.length]).multiplyScalar(0.85 + Math.random() * 0.3);
-    bodies.instanceColor.setXYZ(i, colTmp.r, colTmp.g, colTmp.b);
+      colTmp.set(palette[i % palette.length]).multiplyScalar(0.85 + Math.random() * 0.3);
+      bodies.instanceColor.setXYZ(i, colTmp.r, colTmp.g, colTmp.b);
+      i++;
+    }
   }
   bodies.instanceMatrix.needsUpdate = true;
   bodies.instanceColor.needsUpdate = true;
   caps.instanceMatrix.needsUpdate = true;
-  tanks.instanceMatrix.needsUpdate = true;
-
-  bodies.castShadow = true; bodies.receiveShadow = true;
-  caps.castShadow = false; tanks.castShadow = false;
-  scene.add(bodies); scene.add(caps); scene.add(tanks);
+  bodies.castShadow = false; bodies.receiveShadow = true;
+  caps.castShadow = false;
+  scene.add(bodies); scene.add(caps);
 }
 
-// ---------- Suburb outer ring (Kenney GLB) ----------
-function buildSuburbRing(scene, assets) {
+function buildHDBFallbackRing(scene) {
+  // Simple ring fallback (used only if OSM proj missing — unusual)
+  const N = 18;
+  const winTex = makeWindowTexture(5, 18, 0.4);
+  const geo = new THREE.BoxGeometry(1, 1, 1);
+  const mat = new THREE.MeshStandardMaterial({ map: winTex, roughness: 0.85 });
+  const inst = new THREE.InstancedMesh(geo, mat, N);
+  const m = new THREE.Matrix4(), e = new THREE.Euler(), q = new THREE.Quaternion();
+  const t = new THREE.Vector3(), s = new THREE.Vector3();
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    const r = 140;
+    const w = 18, h = 50, d = 12;
+    e.set(0, -a + Math.PI / 2, 0); q.setFromEuler(e);
+    s.set(w, h, d); t.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+    m.compose(t, q, s); inst.setMatrixAt(i, m);
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  scene.add(inst);
+}
+
+function buildSuburbRing(scene, assets, proj) {
   const a = assets?.['./assets/glb/buildings/building-type-c.glb'];
   const b = assets?.['./assets/glb/buildings/building-type-e.glb'];
   if (!a || !b) return;
@@ -97,37 +112,25 @@ function buildSuburbRing(scene, assets) {
   scene.add(instanceFromGLB(b, matricesFromPlacements(placementsB), { castShadow: false }));
 }
 
-// ---------- Window grid texture ----------
 function makeWindowTexture(cols, rows, lit) {
   const cellW = 30, cellH = 26;
   const cnv = document.createElement('canvas');
   cnv.width = cols * cellW; cnv.height = rows * cellH;
   const ctx = cnv.getContext('2d');
-  // base wall
   ctx.fillStyle = '#bfb6a0'; ctx.fillRect(0, 0, cnv.width, cnv.height);
-  // horizontal floor lines
   ctx.fillStyle = '#5e554a';
   for (let r = 1; r < rows; r++) ctx.fillRect(0, r * cellH - 1, cnv.width, 1);
-  // windows
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const x = c * cellW + 5, y = r * cellH + 5;
-    const w = cellW - 10, h = cellH - 10;
+    const x = c * cellW + 5, y = r * cellH + 5, w = cellW - 10, h = cellH - 10;
     const on = Math.random() < lit;
     ctx.fillStyle = on ? '#ffd97a' : '#1f2030';
     ctx.fillRect(x, y, w, h);
-    // window frame
     ctx.fillStyle = '#5e554a';
-    ctx.fillRect(x + w / 2 - 1, y, 2, h);  // vertical mullion
-    if (on) {
-      ctx.fillStyle = 'rgba(255,235,180,0.5)';
-      ctx.fillRect(x + 2, y + 2, w - 4, 2);
-    }
+    ctx.fillRect(x + w / 2 - 1, y, 2, h);
+    if (on) { ctx.fillStyle = 'rgba(255,235,180,0.5)'; ctx.fillRect(x + 2, y + 2, w - 4, 2); }
   }
-  // balcony rail strip every 4 floors
   ctx.fillStyle = '#7a6e58';
-  for (let r = 0; r < rows; r += 4) {
-    ctx.fillRect(0, r * cellH + cellH - 5, cnv.width, 3);
-  }
+  for (let r = 0; r < rows; r += 4) ctx.fillRect(0, r * cellH + cellH - 5, cnv.width, 3);
   const tex = new THREE.CanvasTexture(cnv);
   tex.wrapS = THREE.RepeatWrapping;
   tex.colorSpace = THREE.SRGBColorSpace;

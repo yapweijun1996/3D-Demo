@@ -15,7 +15,7 @@ export const CFG = {
     bodyColor:   0xd33340,                    // Singapore red
     accentColor: 0xfbf3e2,                    // off-white
     rimColor:    0xc9c9d1,
-    spawn: [0, 0, 24],
+    spawn: [80, 0, 130],                      // near real Singapore city core (lat 1.290, lng 103.852 area)
     accel: 26,
     brake: 32,
     reverseAccel: 11,
@@ -35,37 +35,37 @@ export const CFG = {
   // Marina Bay water (visual only, soft no-go ring)
   water: { center: [0, -90], radius: 60, color: 0x2a6a8a },
 
-  // 5 info signs — Singapore-themed mini tour stops
+  // 5 info signs — REAL Singapore lat/lng (resolved to world via projectLatLng at build time)
   signs: [
-    { id: 'mbs',       label: 'Marina Bay Sands', color: 0xfbcd4e, pos: [ 18, -24],
+    { id: 'mbs',       label: 'Marina Bay Sands', color: 0xfbcd4e, latLng: [1.2834, 103.8607],
       title: 'Marina Bay Sands',
       lines: [
         '三栋 55 层酒店塔楼,顶部由 SkyPark 连接。',
         'Three 55-storey towers crowned by the SkyPark.',
         'Iconic since 2010 — Moshe Safdie design.',
       ] },
-    { id: 'gardens',   label: 'Gardens by the Bay', color: 0x6ad19c, pos: [-26,  -8],
+    { id: 'gardens',   label: 'Gardens by the Bay', color: 0x6ad19c, latLng: [1.2816, 103.8636],
       title: 'Gardens by the Bay',
       lines: [
         'Supertrees 高 25–50m,垂直花园,夜间灯光秀。',
         'Vertical gardens. Lit up nightly at Garden Rhapsody.',
         'Cooled conservatories: Flower Dome + Cloud Forest.',
       ] },
-    { id: 'flyer',     label: 'Singapore Flyer', color: 0xc78bff, pos: [ 26,  10],
+    { id: 'flyer',     label: 'Singapore Flyer', color: 0xc78bff, latLng: [1.2893, 103.8631],
       title: 'Singapore Flyer',
       lines: [
         '观景摩天轮,165m 高,曾是世界最高(2008–2014)。',
         'Giant observation wheel. 30-min full rotation.',
         'Views over Marina Bay, the city, even Indonesia.',
       ] },
-    { id: 'merlion',   label: 'Merlion',          color: 0xff7e5f, pos: [-14,  18],
+    { id: 'merlion',   label: 'Merlion',          color: 0xff7e5f, latLng: [1.2868, 103.8545],
       title: 'Merlion (鱼尾狮)',
       lines: [
         '狮头鱼身,新加坡国家象征。',
         'Lion head + fish body. National symbol since 1964.',
         '8.6m tall, spouts water into Marina Bay.',
       ] },
-    { id: 'about',     label: 'About Me',         color: 0xff5e9c, pos: [  0,  30],
+    { id: 'about',     label: 'About Me',         color: 0xff5e9c, latLng: [1.2950, 103.8520],
       title: 'About yapweijun1996',
       lines: [
         'Singapore-based · building AI agent harnesses.',
@@ -81,20 +81,22 @@ export const CFG = {
     [-6,  18], [-4,  20], [-8,  20],
   ],
 
-  // HDB-style residential towers ringing the playable area (Singapore tall-block feel)
+  // HDB clusters — placed at REAL Singapore neighborhoods (resolved via projectLatLng).
+  // Each cluster is a small group of 4-6 towers around a center point.
   hdb: {
-    count: 28,                                  // denser ring
-    ringRadius: 140,                            // closer (was 230 — buildings too small)
-    ringJitter: 40,
-    minHeight: 38, maxHeight: 70,               // tall like real HDB blocks
-    palette: [0xc8bfa6, 0xe6dac4, 0xb5a98e, 0xd6c8b0],  // off-whites + tans
+    minHeight: 36, maxHeight: 64,
+    palette: [0xc8bfa6, 0xe6dac4, 0xb5a98e, 0xd6c8b0],
+    clusters: [
+      { name: 'Toa Payoh',   latLng: [1.3343, 103.8479], count: 6, spread: 12 },
+      { name: 'Bishan',      latLng: [1.3504, 103.8480], count: 5, spread: 10 },
+      { name: 'Ang Mo Kio',  latLng: [1.3690, 103.8460], count: 6, spread: 14 },
+      { name: 'Tampines',    latLng: [1.3496, 103.9568], count: 5, spread: 12 },
+      { name: 'Jurong East', latLng: [1.3329, 103.7436], count: 5, spread: 12 },
+      { name: 'Woodlands',   latLng: [1.4382, 103.7891], count: 4, spread: 10 },
+    ],
   },
   // Suburb belt — Kenney houses placed further out for visual variety
-  suburb: {
-    count: 14,
-    ringRadius: 220,
-    ringJitter: 30,
-  },
+  suburb: { count: 14, ringRadius: 220, ringJitter: 30 },
 
   // Palm trees scattered for flavor
   palms: {

@@ -6,8 +6,10 @@ import { CFG } from '../config.js';
 // Dynamic FOV expands at high speed for sense-of-speed.
 export function createFollowCam(camera, car, getSpeed) {
   const C = CFG.camera;
-  const stiffness = 8;                                   // critical damped: damping = 2*sqrt(k)
+  // Stiff critical-damped spring (k=30 → fast follow, no overshoot, no lag at speed)
+  const stiffness = 30;
   const damping = 2 * Math.sqrt(stiffness);
+  const MAX_DRIFT = 14;                                  // hard tether: never let camera fall further than this from desired
   const desired = new THREE.Vector3();
   const vel = new THREE.Vector3();                       // camera velocity for spring
   const lookTarget = new THREE.Vector3();
@@ -25,16 +27,27 @@ export function createFollowCam(camera, car, getSpeed) {
     desired.set(p.x - fx * C.followDistance, p.y + C.followHeight, p.z - fz * C.followDistance);
 
     // critical-damped spring — frame-rate independent, no bounce
-    // F = -k*(pos - target) - damping*vel ; pos += vel * dt ; vel += F * dt
-    const dx = camera.position.x - desired.x;
-    const dy = camera.position.y - desired.y;
-    const dz = camera.position.z - desired.z;
+    let dx = camera.position.x - desired.x;
+    let dy = camera.position.y - desired.y;
+    let dz = camera.position.z - desired.z;
     vel.x += (-stiffness * dx - damping * vel.x) * dt;
     vel.y += (-stiffness * dy - damping * vel.y) * dt;
     vel.z += (-stiffness * dz - damping * vel.z) * dt;
     camera.position.x += vel.x * dt;
     camera.position.y += vel.y * dt;
     camera.position.z += vel.z * dt;
+
+    // Hard tether: if camera ever drifts > MAX_DRIFT from desired, snap inward.
+    // Prevents the spring from leaving the car behind on hard accel / phys spike.
+    dx = camera.position.x - desired.x;
+    dz = camera.position.z - desired.z;
+    const drift = Math.hypot(dx, dz);
+    if (drift > MAX_DRIFT) {
+      const k = MAX_DRIFT / drift;
+      camera.position.x = desired.x + dx * k;
+      camera.position.z = desired.z + dz * k;
+      vel.x *= 0.5; vel.z *= 0.5;                        // bleed velocity to settle
+    }
 
     // look ahead of the car along its forward direction
     lookTarget.set(p.x + fx * C.lookAhead, p.y + 1.0, p.z + fz * C.lookAhead);

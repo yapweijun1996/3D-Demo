@@ -79,12 +79,20 @@ function pickFontSize(ctx, lines, maxW, maxH, startSize, minSize) {
   return minSize;
 }
 
-export function buildSigns(scene) {
+export function buildSigns(scene, proj) {
   const out = [];
   const stoneMat = new THREE.MeshStandardMaterial({ color: 0x6a6a74, roughness: 0.85 });
 
   for (const cfg of CFG.signs) {
-    const [x, z] = cfg.pos;
+    // Resolve position: prefer real lat/lng via proj, else fall back to legacy pos
+    let x, z;
+    if (cfg.latLng && proj) {
+      [x, z] = proj(cfg.latLng[0], cfg.latLng[1]);
+    } else if (cfg.pos) {
+      [x, z] = cfg.pos;
+    } else {
+      [x, z] = [0, 0];
+    }
     const g = new THREE.Group();
     g.position.set(x, 0, z);
 

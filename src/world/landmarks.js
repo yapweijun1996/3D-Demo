@@ -6,12 +6,35 @@ import { addBox, addCyl } from '../colliders.js';
 // Each landmark is a stylized low-poly impression — not a faithful model — with
 // emissive accents so it reads at dusk.
 
-export function buildLandmarks(scene) {
+// Real Singapore coordinates (lat, lng). Resolved via projectLatLng if provided,
+// else fall back to the original v0.2 hardcoded layout.
+const REAL_POS = {
+  mbs:        [1.2834, 103.8607],
+  supertree:  [1.2816, 103.8636],
+  flyer:      [1.2893, 103.8631],
+  merlion:    [1.2868, 103.8545],
+};
+const FALLBACK_POS = {
+  mbs:        [-110, 0, -130],
+  supertree:  [ -70, 0,   60],
+  flyer:      [ 110, 0,   70],
+  merlion:    [ -50, 0,  -70],
+};
+
+export function buildLandmarks(scene, proj) {
   const tickers = [];
-  buildMarinaBaySands(scene, [-110, 0, -130]);
-  buildSupertreeGrove(scene, [-70, 0, 60], tickers);
-  buildSingaporeFlyer(scene, [110, 0, 70], tickers);
-  buildMerlion(scene, [-50, 0, -70]);
+  const pos = (key) => {
+    if (proj) {
+      const [lat, lng] = REAL_POS[key];
+      const [x, z] = proj(lat, lng);
+      return [x, 0, z];
+    }
+    return FALLBACK_POS[key];
+  };
+  buildMarinaBaySands(scene, pos('mbs'));
+  buildSupertreeGrove(scene, pos('supertree'), tickers);
+  buildSingaporeFlyer(scene, pos('flyer'), tickers);
+  buildMerlion(scene, pos('merlion'));
   return tickers;
 }
 
