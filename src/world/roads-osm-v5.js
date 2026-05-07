@@ -17,14 +17,14 @@ const LAT_TO_M = 111000;
 // Real Singapore-style asphalt: nearly black (0x222226 → 0x3a3a40 by tier) +
 // wider widths than reality.  Earlier 0x96969e light-grey blended into the
 // saturated green land under HDRI ambient + ACES tonemap.  Dark wins.
-// Y bumped to ~1.0 so flat car-cam angle still gives visible band (not razor-thin
-// slit at horizon). Stack offset prevents z-fight between tiers.
+// Real Singapore-style asphalt at ground level. Stack offset 0.05 between
+// tiers prevents z-fighting where roads cross.
 const TIERS = [
-  { t: 'motorway',  w: 10.0, color: 0x222226, y: 1.00 },
-  { t: 'trunk',     w: 8.0,  color: 0x282830, y: 0.95 },
-  { t: 'primary',   w: 6.0,  color: 0x2e2e36, y: 0.90 },
-  { t: 'secondary', w: 4.0,  color: 0x34343a, y: 0.85 },
-  { t: 'tertiary',  w: 2.5,  color: 0x3a3a40, y: 0.80 },
+  { t: 'motorway',  w: 10.0, color: 0x222226, y: 0.20 },
+  { t: 'trunk',     w: 8.0,  color: 0x282830, y: 0.16 },
+  { t: 'primary',   w: 6.0,  color: 0x2e2e36, y: 0.12 },
+  { t: 'secondary', w: 4.0,  color: 0x34343a, y: 0.08 },
+  { t: 'tertiary',  w: 2.5,  color: 0x3a3a40, y: 0.04 },
 ];
 
 let _proj = null;
@@ -66,7 +66,14 @@ export async function buildOSMRoads(scene) {
     if (!ways.length) continue;
 
     const geo = buildStripGeometry(ways, _proj, tier.w);
-    const mat = new THREE.MeshBasicMaterial({ color: tier.color, fog: true });
+    // DoubleSide is REQUIRED — buildStripGeometry winds vertices so the front
+    // face points DOWN (-Y); from car-cam looking from above we see the back
+    // face, and default FrontSide culls it = invisible.  3 hours of debugging
+    // 'why is this gray-on-green road blending into grass' was actually:
+    // it wasn't rendering at all because of backface culling.
+    const mat = new THREE.MeshBasicMaterial({
+      color: tier.color, fog: true, side: THREE.DoubleSide,
+    });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.y = tier.y;
     mesh.renderOrder = 1;
