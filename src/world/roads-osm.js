@@ -44,27 +44,32 @@ export async function buildOSMRoads(scene) {
   const motorways = data.ways.filter(w => w.t === 'motorway');
   const trunks    = data.ways.filter(w => w.t === 'trunk');
 
-  // Motorway = wider, darker
-  const motorwayGeo = buildStripGeometry(motorways, _proj, 7.0);
-  const motorwayMat = new THREE.MeshStandardMaterial({
-    color: 0x252528, roughness: 0.9, metalness: 0,
-  });
+  // Motorway: wider + brighter asphalt grey, lifted clearly above grass.
+  // Use MeshBasicMaterial (unlit) so dusk shadow doesn't darken it into invisibility.
+  const motorwayGeo = buildStripGeometry(motorways, _proj, 8.0);
+  const motorwayMat = new THREE.MeshBasicMaterial({ color: 0x6a6a72 });
   const motorwayMesh = new THREE.Mesh(motorwayGeo, motorwayMat);
-  motorwayMesh.position.y = 0.02;
-  motorwayMesh.receiveShadow = true;
+  motorwayMesh.position.y = 0.15;
   scene.add(motorwayMesh);
 
-  const trunkGeo = buildStripGeometry(trunks, _proj, 5.0);
-  const trunkMat = new THREE.MeshStandardMaterial({
-    color: 0x33333a, roughness: 0.9, metalness: 0,
-  });
+  // Trunk: slightly narrower + lighter (visible hierarchy)
+  const trunkGeo = buildStripGeometry(trunks, _proj, 5.5);
+  const trunkMat = new THREE.MeshBasicMaterial({ color: 0x7a7a82 });
   const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
-  trunkMesh.position.y = 0.015;
-  trunkMesh.receiveShadow = true;
+  trunkMesh.position.y = 0.10;
   scene.add(trunkMesh);
 
+  // Pre-project all road points for minimap consumption (cheap — done once at boot)
+  const minimapSegs = [];
+  for (const w of [...motorways, ...trunks]) {
+    const pts = w.g.map(([la, lo]) => _proj(la, lo));
+    for (let i = 0; i < pts.length - 1; i++) {
+      minimapSegs.push(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]);
+    }
+  }
+
   console.log(`[osm] ${motorways.length} motorways + ${trunks.length} trunks rendered, 2 drawcalls`);
-  return { proj: _proj, bbox: data.bbox };
+  return { proj: _proj, bbox: data.bbox, minimapSegs };
 }
 
 // Get the singleton projector (after buildOSMRoads has run).

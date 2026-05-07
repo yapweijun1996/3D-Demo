@@ -2,7 +2,7 @@ import { CFG } from '../config.js';
 
 // Top-down 2D canvas overlay. Shows playable area, signs, water, car position+heading.
 // Updated every frame from main.js.
-export function createMinimap(car, signs) {
+export function createMinimap(car, signs, roadSegs = null) {
   const SIZE = 180;
   const cnv = document.createElement('canvas');
   cnv.width = cnv.height = SIZE * devicePixelRatio;
@@ -36,11 +36,23 @@ export function createMinimap(car, signs) {
       ctx.beginPath(); ctx.arc(mx, my, CFG.water.radius * k, 0, Math.PI * 2); ctx.fill();
     }
 
-    // road cross
-    ctx.strokeStyle = '#4a4a52';
-    ctx.lineWidth = 12 * k;
-    ctx.beginPath(); ctx.moveTo(half, 0); ctx.lineTo(half, SIZE); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, half); ctx.lineTo(SIZE, half); ctx.stroke();
+    // OSM roads (real Singapore expressway network) — falls back to cross if not provided
+    if (roadSegs) {
+      ctx.strokeStyle = '#7a7a82';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let i = 0; i < roadSegs.length; i += 4) {
+        const [m1x, m1y] = w2m(roadSegs[i], roadSegs[i + 1]);
+        const [m2x, m2y] = w2m(roadSegs[i + 2], roadSegs[i + 3]);
+        ctx.moveTo(m1x, m1y); ctx.lineTo(m2x, m2y);
+      }
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = '#4a4a52';
+      ctx.lineWidth = 12 * k;
+      ctx.beginPath(); ctx.moveTo(half, 0); ctx.lineTo(half, SIZE); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, half); ctx.lineTo(SIZE, half); ctx.stroke();
+    }
 
     // signs — visited = dimmed grey, unvisited = bright color
     for (const s of signs) {

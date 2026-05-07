@@ -125,7 +125,7 @@ async function main() {
   bindStartOverlay();
   maybeBindTouchControls();
   const stats = createStats(renderer);
-  const minimap = createMinimap(car, signs);
+  const minimap = createMinimap(car, signs, osm?.minimapSegs);
 
   let now = 0;
   // Transition-only trigger: a sign fires only when the car CROSSES from outside
