@@ -44,19 +44,19 @@ export async function buildOSMRoads(scene) {
   const motorways = data.ways.filter(w => w.t === 'motorway');
   const trunks    = data.ways.filter(w => w.t === 'trunk');
 
-  // Motorway: wider + brighter asphalt grey, lifted clearly above grass.
-  // Use MeshBasicMaterial (unlit) so dusk shadow doesn't darken it into invisibility.
-  const motorwayGeo = buildStripGeometry(motorways, _proj, 8.0);
-  const motorwayMat = new THREE.MeshBasicMaterial({ color: 0x6a6a72 });
+  // Motorway: wider + near-white concrete color so roads stand out clearly
+  // against green grass under any lighting. Lifted well above grass to avoid z-fight.
+  const motorwayGeo = buildStripGeometry(motorways, _proj, 9.0);
+  const motorwayMat = new THREE.MeshBasicMaterial({ color: 0xd0d0d6 });
   const motorwayMesh = new THREE.Mesh(motorwayGeo, motorwayMat);
-  motorwayMesh.position.y = 0.15;
+  motorwayMesh.position.y = 0.30;
   scene.add(motorwayMesh);
 
-  // Trunk: slightly narrower + lighter (visible hierarchy)
-  const trunkGeo = buildStripGeometry(trunks, _proj, 5.5);
-  const trunkMat = new THREE.MeshBasicMaterial({ color: 0x7a7a82 });
+  // Trunk: slightly narrower, slightly tan (visible hierarchy from motorway)
+  const trunkGeo = buildStripGeometry(trunks, _proj, 6.0);
+  const trunkMat = new THREE.MeshBasicMaterial({ color: 0xc8b89a });
   const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
-  trunkMesh.position.y = 0.10;
+  trunkMesh.position.y = 0.25;
   scene.add(trunkMesh);
 
   // Pre-project all road points for minimap consumption (cheap — done once at boot)
