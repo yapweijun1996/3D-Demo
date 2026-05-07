@@ -104,16 +104,16 @@ function buildSupertreeGrove(scene, [cx, cy, cz], tickers) {
   });
 
   const layout = [
-    [  0,   0, 28], [ 14, -10, 32], [-14, -10, 26],
-    [ 18,  12, 24], [-18,  12, 30], [  0,  20, 22],
+    [  0,   0, 22], [ 14, -10, 26], [-14, -10, 20],
+    [ 18,  12, 18], [-18,  12, 24], [  0,  20, 16],   // shorter (16-26 was 22-32 — too tall)
   ];
   const N = layout.length;
 
-  // Unit geometries — scale via instance matrix (Y scale = trunk height).
-  const trunkGeo = new THREE.CylinderGeometry(1.0, 1.4, 1, 12); // unit height
-  const diskGeo  = new THREE.CylinderGeometry(5.5, 4.5, 0.8, 16);
-  const stripGeo = new THREE.BoxGeometry(0.18, 1, 0.08);        // unit Y
-  const spokeGeo = new THREE.BoxGeometry(7.5, 0.15, 0.2);
+  // Thicker trunk: 1.8m top → 2.4m base (was 1.0/1.4 → looked like power lines)
+  const trunkGeo = new THREE.CylinderGeometry(1.8, 2.4, 1, 14);
+  const diskGeo  = new THREE.CylinderGeometry(8.0, 6.5, 1.2, 18);  // bigger canopy (was 5.5/4.5)
+  const stripGeo = new THREE.BoxGeometry(0.30, 1, 0.12);            // thicker accent strips
+  const spokeGeo = new THREE.BoxGeometry(11, 0.22, 0.3);            // longer + thicker spokes
 
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N);
   const disks  = new THREE.InstancedMesh(diskGeo, canopyMat, N);
@@ -144,7 +144,7 @@ function buildSupertreeGrove(scene, [cx, cy, cz], tickers) {
     // strips: 6 around trunk, height = h*0.92 → scale Y, rotated to face out
     for (let s = 0; s < 6; s++) {
       const a = (s / 6) * Math.PI * 2;
-      tV.set(x + Math.cos(a) * 1.1, h / 2, z + Math.sin(a) * 1.1);
+      tV.set(x + Math.cos(a) * 2.0, h / 2, z + Math.sin(a) * 2.0);  // strips on bigger trunk
       eR.set(0, -a, 0);
       qR.setFromEuler(eR);
       sV.set(1, h * 0.92, 1);

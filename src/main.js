@@ -106,7 +106,14 @@ async function main() {
   setTimeout(() => splash.hide(), 200);
 
   const drive = createDrive(car, physicsReady ? { RAPIER, world, carPhys } : null);
-  const followCam = createFollowCam(camera, car);
+  const getSpeed = () => physicsReady && carPhys?.body
+    ? carPhys.body.linvel().x ** 2 + carPhys.body.linvel().z ** 2 ** 0.5
+    : 0;
+  const followCam = createFollowCam(camera, car, () => {
+    if (!physicsReady || !carPhys?.body) return 0;
+    const v = carPhys.body.linvel();
+    return Math.sqrt(v.x * v.x + v.z * v.z);
+  });
 
   bindInput();
   bindStartOverlay();

@@ -5,10 +5,10 @@ export const CFG = {
 
   camera: {
     fov: 58, near: 0.1, far: 900,
-    followDistance: 8.5,
-    followHeight: 3.8,
-    smoothing: 0.10,
-    lookAhead: 4.0,
+    followDistance: 9.0,
+    followHeight: 5.5,                       // higher (was 3.8 — too low / horizon at center)
+    smoothing: 0.10,                         // legacy lerp factor (camera now uses spring)
+    lookAhead: 5.5,
   },
 
   car: {
@@ -81,11 +81,19 @@ export const CFG = {
     [-6,  18], [-4,  20], [-8,  20],
   ],
 
-  // HDB-style residential towers ringing the playable area
+  // HDB-style residential towers ringing the playable area (Singapore tall-block feel)
   hdb: {
-    count: 18,
-    ringRadius: 230,
-    ringJitter: 35,
+    count: 28,                                  // denser ring
+    ringRadius: 140,                            // closer (was 230 — buildings too small)
+    ringJitter: 40,
+    minHeight: 38, maxHeight: 70,               // tall like real HDB blocks
+    palette: [0xc8bfa6, 0xe6dac4, 0xb5a98e, 0xd6c8b0],  // off-whites + tans
+  },
+  // Suburb belt — Kenney houses placed further out for visual variety
+  suburb: {
+    count: 14,
+    ringRadius: 220,
+    ringJitter: 30,
   },
 
   // Palm trees scattered for flavor
@@ -113,16 +121,16 @@ export const CFG = {
     chassis: {
       halfExtents: [0.95, 0.4, 1.7],          // collider half-size
       mass: 900,
-      linearDamping: 0.4,
+      linearDamping: 0.25,                    // less drag (was 0.4 — felt sluggish)
       angularDamping: 0.7,
       visualOffsetY: 0.85,                    // body center → visual group origin offset
     },
     wheel: {
-      suspensionRest: 0.30,
-      suspensionMaxTravel: 0.3,
-      suspensionStiffness: 30,
-      frictionSlip: 1.6,
-      sideFrictionStiffness: 1.0,
+      suspensionRest: 0.22,                   // shorter rest (was 0.30 — car sat too high)
+      suspensionMaxTravel: 0.18,              // less travel (was 0.30 — too soft, body roll too much)
+      suspensionStiffness: 50,                // stiffer (was 30 — felt floaty)
+      frictionSlip: 2.4,                      // more grip (was 1.6 — felt slippy)
+      sideFrictionStiffness: 1.5,             // more lateral grip (was 1.0)
       radius: 0.40,
       anchors: [
         [ 0.92, -0.2,  1.05, true ],          // FR
