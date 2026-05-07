@@ -1,8 +1,16 @@
 # Drive Singapore — v0.3 SSOT Plan
 
-> **Status**: planning approved (2026-05-07). Authoritative source of intent for v0.3.
+> **Status**: v0.3 phases A-G shipped; **Phase H (Apple HIG city replan + game feel) shipped 2026-05-07**.
 > **Owner**: yapweijun1996.
 > **Update rule**: every architectural decision lands here BEFORE code. Code without a matching section is technical debt.
+
+> **Latest commits in scope** (newest first):
+> - `b28bba3` boost game-feel: exhaust trail + camera shake + touch button
+> - `898eec5` add Shift = nitrous boost + speedometer HUD
+> - `1e64af7` city replan P1+P2: palette constitution + HDB slab/point typology
+> - `f78c601` add postfx (Bloom+ACES) + day/night-driven HDB window glow
+> - `93ec1fb` Production cleanup
+> - `ff3c3a5` ROOT CAUSE FIX — roads invisible was BACKFACE CULLING
 
 ---
 
@@ -183,6 +191,25 @@ Rejected:
 - Offline reload works after first visit
 **Risk**: SW cache version drift traps user in old build → semver in `CACHE` const, auto-evict on new install.
 
+### Phase H — Apple HIG city replan + game feel  *(shipped 2026-05-07)*
+**Goal**: lift visual quality from "demo" to "polished" without new heavy assets, and make boost feel like a AAA nitrous button.
+**Out**:
+- `src/render/postfx.js` — `EffectComposer` pipeline (RenderPass → UnrealBloomPass → OutputPass). Bloom strength 0.45, threshold 0.82 — only HDR-bright pixels glow.
+- Palette constitution in `src/config.js` — exported `PALETTE` (8 hues max). Every visible color sources from this single object. See ADR-008.
+- HDB typology rewrite in `src/world/buildings.js` — 70/30 mix of slab (50–80m × 32–48m) + point (22×22 × 70–90m) blocks per cluster, each with recessed void deck + off-center rooftop water tank. Per-cluster `tone` (warm/cool) locks neighborhood identity.
+- `src/world/daynight.js` exposes `phase` (0=day, 1=night, eased) → HDB window emissive intensity tracks phase each frame.
+- Nitrous boost system (`Shift` key, mobile button): finite-fuel gauge (3s burn, 0.35/s refill, 0.4s cooldown). 5 parallel feedback channels — engine force ×2, +6° FOV punch, ±0.10 camera shake, twin emissive exhaust planes (`src/vehicle/exhaust.js`), HUD orange glow (`src/ui/speedometer.js`).
+- Touch BOOST button added to `src/ui/touch-controls.js` (orange tint above BRAKE pad).
+
+**Acceptance**:
+- bloom visibly amplifies white road stripes + lit windows + boost flames
+- HDB clusters readable as Singapore at >100m distance via slab/point silhouette
+- 5-channel boost feedback fires within 1 frame of `keys.boost = true`
+- Mobile touch boost works on devices with `maxTouchPoints > 0`
+- No regression in `renderer.info.render.calls` budget — added 3 InstancedMesh batches but consolidated existing ones, net same drawcall count
+
+**Risk**: postfx adds ~3ms/frame on low-end GPU → bloom strength tunable via `CFG.perf.bloomStrength` if needed (not yet wired, defer to perf regression).
+
 ---
 
 ## 4. Performance budget (hard limits — verified Phase E)
@@ -231,8 +258,56 @@ Rejected:
 | 004 | 2026-05-07 | MBS/Flyer/Merlion stay procedural — no CC0 equivalent | accepted |
 | 005 | 2026-05-07 | Mobile after physics+assets, not parallel | accepted |
 | 006 | 2026-05-07 | Three-layer cache-bust (server `no-cache`+ETag, HTML meta, entry `?v=`) | accepted |
+| 007 | 2026-05-07 | Roads need `side: THREE.DoubleSide` — buildStripGeometry triangle winding produces front-face-down, FrontSide culls them at car-cam | accepted |
+| 008 | 2026-05-07 | Palette constitution — single `PALETTE` export, 8 hues max, every mesh sources from it. Apple HIG: clarity from constraint | accepted |
+| 009 | 2026-05-07 | HDB typology = slab + point + void deck + rooftop water tank, per-cluster tone (warm/cool). Silhouette-first, not detail-first | accepted |
+| 010 | 2026-05-07 | Boost game-feel = 5-channel parallel feedback (force/FOV/shake/exhaust/HUD). State fan-out from `drive.state`, not callbacks | accepted |
+| 011 | 2026-05-07 | Postprocessing via `EffectComposer` (RenderPass→Bloom→OutputPass). ACES tonemap moves from renderer to OutputPass when composer is in use | accepted |
 
 Future decisions append here, never delete.
+
+### ADR-008 — Palette constitution
+
+**Context**: pre-Phase H, every world module picked colors freely (`0x4f7242` land, `0x9cc8ea` sky, etc). Result was visual incoherence — saturated grass under washed-out sky, hemi ground accidentally matching land color, killing depth perception. New modules had no rule for what colors to use.
+
+**Decision**: a single `PALETTE` exported from `src/config.js`. 8 hues max:
+`sky / skyNight / fog / fogNight / sea / land / road / accent / hdbWarm[2] / hdbCool[2] / voidDeck / rooftop`.
+Every visible color in the world MUST source from this object. Per-cluster `tone: 'warm'|'cool'` selects which HDB pair to use.
+
+**Why this works**: Apple HIG, Memoji, Alto's Odyssey — all derive coherence from constraint, not asset variety. Limiting the palette forces silhouette + composition to do the work.
+
+**Files touched**: `src/config.js` (export), `src/world/daynight.js`, `src/world/land.js`, `src/world/water.js`, `src/world/buildings.js` (consumers).
+
+**Maintenance rule**: any PR adding a new visible color without a `PALETTE.x` reference is rejected.
+
+### ADR-009 — HDB typology (slab + point + void deck + water tank)
+
+**Context**: pre-Phase H, all HDB blocks were a single 18×40×11 box per cluster. From the road they read as "generic apartment", not "Singapore HDB". Real HDB has two distinct typologies (long slab + tall point block) and two unmistakable silhouette features (open-column void deck at ground floor + rooftop water tank).
+
+**Decision**:
+- Per cluster, 70% slab (50–80m × 32–48m × 12m) + 30% point (22×22 × 70–90m).
+- Every block emits 3 `InstancedMesh` slots: body, void deck (3m bottom, 4% inset, dark `PALETTE.voidDeck`), rooftop water tank (small box, off-center on slabs, centered on points, color `PALETTE.rooftop`).
+- Per-cluster `tone` field locks neighborhood identity (warm = Toa Payoh / AMK / JE; cool = Bishan / Tampines / Woodlands).
+- Block placement uses golden-angle distribution (2.39996 rad) for even spread without grid feel, axis-aligned rotation (0 or π/2) for clarity over noise.
+
+**Why InstancedMesh**: 39 buildings × 3 sub-meshes = 117 logical meshes, but only 3 drawcalls thanks to instancing. Same perf budget as the old 1-batch version.
+
+**Files touched**: `src/world/buildings.js` (rewrite), `src/config.js` (cluster.tone, dropped minHeight/maxHeight).
+
+### ADR-010 — Boost game feel = 5-channel parallel feedback
+
+**Context**: shipping nitrous boost as just a force multiplier is invisible — players cannot feel a 2× change in chassis force without confirmation in other senses.
+
+**Decision**: when `keys.boost` is true and gauge has fuel, fire 5 parallel feedback channels in the same frame:
+1. Physics — engine force ×2 (rear wheels in Rapier path)
+2. Camera — extra +6° FOV target (on top of speed-driven FOV) + ±0.10 X jitter, ±0.07 Y jitter
+3. Visual — twin emissive exhaust planes opacity-lerp from 0 → 0.95 at 35%/frame, scale-flicker each frame for fire feel, additive blend so bloom amplifies them
+4. HUD — speedometer digits + gauge + border switch to orange `PALETTE.accent` with glow box-shadow
+5. Touch UI — BOOST button background lightens, glow box-shadow on
+
+**Architecture**: `drive.tick()` writes `drive.state = { speedKmh, boost, boosting }` once per tick. Five independent consumers read it. No callbacks, no event bus — fan-out from a single source. Adding a 6th channel (audio, particles, drift trail) is a new consumer module, zero changes to existing code.
+
+**Files touched**: `src/input.js`, `src/config.js` (CFG.boost), `src/vehicle/drive.js`, `src/vehicle/camera.js`, `src/vehicle/exhaust.js` (new), `src/ui/speedometer.js` (new), `src/ui/touch-controls.js`.
 
 ### ADR-006 — Three-layer cache-bust strategy
 
