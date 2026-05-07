@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { loadRoadTextures, setRepeatMeters } from './textures.js';
+import { emitParallelStrip } from './road-emitter.js';
 
 // Render Singapore central road network from OSM data.
 // Source: assets/data/sg-roads.json (Overpass: 5 highway tiers,
@@ -69,7 +70,7 @@ export async function buildOSMRoads(scene) {
     totalWays += ways.length;
     if (!ways.length) continue;
 
-    const geo = buildStripGeometry(ways, _proj, tier.w);
+    const geo = emitParallelStrip(ways, _proj, { widthMeters: tier.w });
     // PBR asphalt with tier color tint. UV box-projected from world XZ (in
     // meters) so the shared texture tiles uniformly. receiveShadow on so the
     // car's shadow lands on the road. DoubleSide kept for the legacy winding
@@ -90,7 +91,7 @@ export async function buildOSMRoads(scene) {
     // carriageway feel), dashed for motorway (lane separator).
     if (tier.t === 'motorway' || tier.t === 'trunk') {
       const dashed = (tier.t === 'motorway');
-      const stripeGeo = buildStripGeometry(ways, _proj, tier.w * 0.10, dashed);
+      const stripeGeo = emitParallelStrip(ways, _proj, { widthMeters: tier.w * 0.10, dashed });
       const stripeMat = new THREE.MeshBasicMaterial({
         color: 0xffffff, fog: true, side: THREE.DoubleSide,   // backface cull would hide stripe (same bug as roads)
       });
@@ -120,69 +121,4 @@ export function projectLatLng(lat, lng) {
   return _proj(lat, lng);
 }
 
-function buildStripGeometry(ways, project, width, dashed = false) {
-  const positions = [];
-  const uvs = [];                  // box-projected UV in meters: (xWorld, zWorld)
-  const indices = [];
-  let vi = 0;
-  const halfW = width / 2;
-  const DASH_LEN = 4.0;            // world units of dash + gap cycle
-  const DASH_DUTY = 0.55;          // 55% painted, 45% gap
-
-  function pushQuad(xa, za, xb, zb, nx, nz) {
-    positions.push(xa + nx, 0, za + nz, xa - nx, 0, za - nz, xb + nx, 0, zb + nz, xb - nx, 0, zb - nz);
-    uvs.push(xa + nx, za + nz, xa - nx, za - nz, xb + nx, zb + nz, xb - nx, zb - nz);
-    indices.push(vi, vi + 1, vi + 2, vi + 1, vi + 3, vi + 2);
-    vi += 4;
-  }
-
-  for (const way of ways) {
-    const pts = way.g.map(([lat, lng]) => project(lat, lng));
-    let s = 0;                     // arc-length along this way (for dashed)
-    for (let i = 0; i < pts.length - 1; i++) {
-      const [x1, z1] = pts[i];
-      const [x2, z2] = pts[i + 1];
-      const dx = x2 - x1, dz = z2 - z1;
-      const len = Math.hypot(dx, dz);
-      if (len < 0.05) continue;
-      const nx = -dz / len * halfW;
-      const nz =  dx / len * halfW;
-      // dashed mode: walk arc-length along dashes/gaps and emit only dash quads.
-      if (dashed) {
-        const startS = s;
-        let cursor = 0;                     // 0..len in this segment
-        while (cursor < len) {
-          const globalS = startS + cursor;
-          const phase = ((globalS % DASH_LEN) + DASH_LEN) % DASH_LEN;     // 0..DASH_LEN
-          const inDash = phase < DASH_LEN * DASH_DUTY;
-          const remainInState = inDash
-            ? (DASH_LEN * DASH_DUTY) - phase
-            : DASH_LEN - phase;
-          const advance = Math.max(0.05, Math.min(remainInState, len - cursor));
-          if (inDash) {
-            const t0 = cursor, t1 = cursor + advance;
-            const xa = x1 + dx * (t0 / len), za = z1 + dz * (t0 / len);
-            const xb = x1 + dx * (t1 / len), zb = z1 + dz * (t1 / len);
-            pushQuad(xa, za, xb, zb, nx, nz);
-          }
-          cursor += advance;
-        }
-        s += len;
-      } else {
-        pushQuad(x1, z1, x2, z2, nx, nz);
-      }
-    }
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
-  geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
-  geo.setIndex(indices);
-  // Normals all point +Y (road lies flat on XZ). Computing per-vertex from a
-  // strip with all y=0 would yield NaN; setting uniform up directly is correct
-  // and one BufferAttribute cheaper than computeVertexNormals().
-  const normals = new Float32Array(positions.length);
-  for (let i = 1; i < normals.length; i += 3) normals[i] = 1;
-  geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-  return geo;
-}
+// (buildStripGeometry moved to ./road-emitter.js as emitParallelStrip — see T03 commit.)
