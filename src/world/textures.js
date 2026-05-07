@@ -27,6 +27,15 @@ export function loadGroundTextures() {
   };
 }
 
+// Polyhaven concrete_floor_02 1k — diffuse + nor_gl + roughness. Sidewalks.
+export function loadSidewalkTextures() {
+  return {
+    map:          load('./assets/textures/sidewalk/concrete_diff_1k.jpg', { srgb: true }),
+    normalMap:    load('./assets/textures/sidewalk/concrete_nor_1k.jpg'),
+    roughnessMap: load('./assets/textures/sidewalk/concrete_rough_1k.jpg'),
+  };
+}
+
 // Polyhaven coast_sand_rocks_02 1k — diffuse + nor_gl + roughness.
 export function loadSandTextures() {
   return {

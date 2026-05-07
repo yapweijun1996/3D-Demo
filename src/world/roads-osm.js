@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { loadRoadTextures, setRepeatMeters } from './textures.js';
+import { loadRoadTextures, loadSidewalkTextures, setRepeatMeters } from './textures.js';
 import { emitParallelStrip } from './road-emitter.js';
 
 // Render Singapore central road network from OSM data.
@@ -60,6 +60,21 @@ export async function buildOSMRoads(scene) {
   const roadMaps = loadRoadTextures();
   setRepeatMeters(roadMaps, 1 / ROAD_TILE_M, 1 / ROAD_TILE_M);
 
+  // PBR concrete sidewalks — separate texture set, tile = 4m. Sidewalks flank
+  // primary/secondary/tertiary roads (skip motorway/trunk highways with no
+  // sidewalk in real life). Sit raised 0.10m above road surface so the
+  // elevation step itself reads as the curb edge from car cam — no separate
+  // curb mesh needed.
+  const SIDEWALK_TILE_M = 4;
+  const SIDEWALK_W = 3.0;            // 3m wide sidewalk per side
+  const sidewalkMaps = loadSidewalkTextures();
+  setRepeatMeters(sidewalkMaps, 1 / SIDEWALK_TILE_M, 1 / SIDEWALK_TILE_M);
+  const sidewalkMat = new THREE.MeshStandardMaterial({
+    color: 0xc8c0b0, roughness: 1.0, metalness: 0.0,
+    side: THREE.DoubleSide,
+    ...sidewalkMaps,
+  });
+
   const minimapSegs = [];
   let totalWays = 0;
   const counts = {};
@@ -86,6 +101,26 @@ export async function buildOSMRoads(scene) {
     mesh.renderOrder = 1;
     mesh.receiveShadow = true;
     scene.add(mesh);
+
+    // Sidewalks — flank primary/secondary/tertiary roads on both sides.
+    // Skip motorway/trunk (no real sidewalk on highways). Raised 0.10m above
+    // the road surface so the elevation step itself reads as the curb edge.
+    // Two meshes per tier (left + right) — could merge but ~6 extra drawcalls
+    // total is well under budget.
+    if (tier.t === 'primary' || tier.t === 'secondary' || tier.t === 'tertiary') {
+      const swOffset = tier.w / 2 + SIDEWALK_W / 2;
+      for (const side of [-1, 1]) {
+        const swGeo = emitParallelStrip(ways, _proj, {
+          widthMeters: SIDEWALK_W,
+          offsetMeters: side * swOffset,
+        });
+        const swMesh = new THREE.Mesh(swGeo, sidewalkMat);
+        swMesh.position.y = tier.y + 0.10;
+        swMesh.renderOrder = 1;
+        swMesh.receiveShadow = true;
+        scene.add(swMesh);
+      }
+    }
 
     // White center lane line — Singapore standard. Solid for trunk (single
     // carriageway feel), dashed for motorway (lane separator).
