@@ -20,6 +20,7 @@ const DRIFT_SPEED_MIN = 0.6;
 const DRIFT_SPEED_MAX = 1.8;
 
 export function buildClouds(scene, tickers) {
+  console.log('[clouds] buildClouds called, tickers=', !!tickers);
   const tex = new THREE.CanvasTexture(makeCloudCanvas(256));
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.minFilter = THREE.LinearFilter;
@@ -39,6 +40,7 @@ export function buildClouds(scene, tickers) {
   // even though individual instances are in view.
   mesh.frustumCulled = false;
   scene.add(mesh);
+  window.__clouds = mesh;
 
   const dummy = new THREE.Object3D();
   const speeds = new Float32Array(COUNT);
