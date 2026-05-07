@@ -32,6 +32,11 @@ export function buildClouds(scene, tickers) {
     depthWrite: false, fog: false, side: THREE.DoubleSide,
   });
   const mesh = new THREE.InstancedMesh(geo, mat, COUNT);
+  // Disable frustum culling: InstancedMesh frustum check uses the geometry
+  // bbox at the mesh origin, which doesn't enclose instance positions
+  // 220 units away — the whole mesh gets culled when they're off-screen
+  // even though individual instances are in view.
+  mesh.frustumCulled = false;
   scene.add(mesh);
 
   const dummy = new THREE.Object3D();
