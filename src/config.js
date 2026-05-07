@@ -96,11 +96,16 @@ export const CFG = {
   lights: {
     hemi:    { sky: 0xfbd9b0, ground: 0x4a5440, intensity: 0.55 },
     sun:     { color: 0xffd9a0, intensity: 1.6, pos: [60, 90, 50],
-               shadow: { mapSize: 2048, frustum: 90, near: 1, far: 280, bias: -0.0005 } },
+               // Shadow tuned for FPS (was mapSize:2048 frustum:90 = ~4x cost):
+               // smaller map + tighter frustum focused on play area where car actually is.
+               shadow: { mapSize: 1024, frustum: 55, near: 1, far: 220, bias: -0.0005 } },
     ambient: { color: 0x7e90b6, intensity: 0.25 },
   },
 
-  perf: { pixelRatio: 2 },
+  perf: {
+    pixelRatio: 1.5,                  // capped under 2 — Retina *2 quadruples pixels = 4x fragment cost
+    shadowsEnabled: true,             // toggle for further perf if needed
+  },
 
   physics: {
     enabled: true,                            // false → fall back to kinematic drive (v0.2)

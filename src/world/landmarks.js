@@ -206,44 +206,35 @@ function buildSingaporeFlyer(scene, [cx, cy, cz], tickers) {
   wheel.rotation.y = Math.PI / 2;
   g.add(wheel);
 
-  // double parallel main rims
-  const rimMain1 = new THREE.Mesh(new THREE.TorusGeometry(wheelR, 0.55, 14, 64), rimMat);
+  // double parallel main rims (no shadow — too expensive for distant background)
+  const rimMain1 = new THREE.Mesh(new THREE.TorusGeometry(wheelR, 0.55, 10, 48), rimMat);
   rimMain1.position.x = 0.8;
+  rimMain1.castShadow = false;
   wheel.add(rimMain1);
   const rimMain2 = rimMain1.clone();
   rimMain2.position.x = -0.8;
   wheel.add(rimMain2);
-  // inner thinner ring tying the pods together
-  const rimInner = new THREE.Mesh(new THREE.TorusGeometry(wheelR - 1.5, 0.2, 8, 64), rimMat);
+  const rimInner = new THREE.Mesh(new THREE.TorusGeometry(wheelR - 1.5, 0.2, 6, 48), rimMat);
+  rimInner.castShadow = false;
   wheel.add(rimInner);
 
-  // spokes — fewer (12), thicker (radius 0.18) so they read at distance
+  // spokes — 12 thicker bars
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
-    const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, wheelR * 2 - 1, 8), rimMat);
+    const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, wheelR * 2 - 1, 6), rimMat);
     spoke.rotation.x = Math.PI / 2;
     spoke.rotation.z = a;
+    spoke.castShadow = false;
     wheel.add(spoke);
-  }
-  // diagonal cross-bracing for visual richness
-  for (let side of [0.8, -0.8]) {
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, wheelR * 1.95, 6), rimMat);
-      brace.rotation.x = Math.PI / 2;
-      brace.rotation.z = a + Math.PI / 12;
-      brace.position.x = side;
-      wheel.add(brace);
-    }
   }
 
   // pods
   const pods = [];
   for (let i = 0; i < 18; i++) {
     const a = (i / 18) * Math.PI * 2;
-    const pod = new THREE.Mesh(new THREE.SphereGeometry(1.4, 16, 12), podMat);
+    const pod = new THREE.Mesh(new THREE.SphereGeometry(1.4, 12, 8), podMat);
     pod.position.set(0, Math.sin(a) * wheelR, Math.cos(a) * wheelR);
-    pod.castShadow = true;
+    pod.castShadow = false;
     wheel.add(pod);
     pods.push({ pod, baseAngle: a });
   }
