@@ -42,12 +42,12 @@ export function createMinimap(car, signs) {
     ctx.beginPath(); ctx.moveTo(half, 0); ctx.lineTo(half, SIZE); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, half); ctx.lineTo(SIZE, half); ctx.stroke();
 
-    // signs
+    // signs — visited = dimmed grey, unvisited = bright color
     for (const s of signs) {
       const [mx, my] = w2m(s.position.x, s.position.z);
-      ctx.fillStyle = '#' + s.color.toString(16).padStart(6, '0');
-      ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = s.visited ? '#5a5e6a' : '#' + s.color.toString(16).padStart(6, '0');
+      ctx.beginPath(); ctx.arc(mx, my, s.visited ? 3 : 5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
     }
 
     // car (triangle pointing along heading)

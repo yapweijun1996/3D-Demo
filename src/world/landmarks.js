@@ -200,25 +200,41 @@ function buildSingaporeFlyer(scene, [cx, cy, cz], tickers) {
   }
   addCyl(cx, cz, 9);
 
-  // wheel rim torus
+  // wheel rim torus — main outer ring is fat + visible from far away
   const wheel = new THREE.Group();
   wheel.position.set(0, wheelHeight, 0);
   wheel.rotation.y = Math.PI / 2;
   g.add(wheel);
 
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(wheelR, 0.6, 12, 64), rimMat);
-  wheel.add(rim);
-  const rim2 = new THREE.Mesh(new THREE.TorusGeometry(wheelR - 0.5, 0.3, 8, 64), rimMat);
-  rim2.position.x = 0.6; wheel.add(rim2);
-  const rim3 = rim2.clone(); rim3.position.x = -0.6; wheel.add(rim3);
+  // double parallel main rims
+  const rimMain1 = new THREE.Mesh(new THREE.TorusGeometry(wheelR, 0.55, 14, 64), rimMat);
+  rimMain1.position.x = 0.8;
+  wheel.add(rimMain1);
+  const rimMain2 = rimMain1.clone();
+  rimMain2.position.x = -0.8;
+  wheel.add(rimMain2);
+  // inner thinner ring tying the pods together
+  const rimInner = new THREE.Mesh(new THREE.TorusGeometry(wheelR - 1.5, 0.2, 8, 64), rimMat);
+  wheel.add(rimInner);
 
-  // spokes
-  for (let i = 0; i < 24; i++) {
-    const a = (i / 24) * Math.PI * 2;
-    const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, wheelR * 2 - 1, 6), rimMat);
+  // spokes — fewer (12), thicker (radius 0.18) so they read at distance
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, wheelR * 2 - 1, 8), rimMat);
     spoke.rotation.x = Math.PI / 2;
     spoke.rotation.z = a;
     wheel.add(spoke);
+  }
+  // diagonal cross-bracing for visual richness
+  for (let side of [0.8, -0.8]) {
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, wheelR * 1.95, 6), rimMat);
+      brace.rotation.x = Math.PI / 2;
+      brace.rotation.z = a + Math.PI / 12;
+      brace.position.x = side;
+      wheel.add(brace);
+    }
   }
 
   // pods

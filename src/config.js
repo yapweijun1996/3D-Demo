@@ -73,8 +73,7 @@ export const CFG = {
         'github.com/yapweijun1996',
       ] },
   ],
-  signTriggerRadius: 3.0,
-  signCooldown: 1.5,
+  signTriggerRadius: 3.0,           // transition-only trigger; cooldown removed (see main.checkSignTriggers)
 
   // Decorative cones around the player spawn — small driving warm-up area
   cones: [

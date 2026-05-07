@@ -114,17 +114,19 @@ async function main() {
   const minimap = createMinimap(car, signs);
 
   let now = 0;
+  // Transition-only trigger: a sign fires only when the car CROSSES from outside
+  // its zone into inside. Sitting in the zone never re-fires. Drive away then
+  // back in to read again.
   function checkSignTriggers() {
-    if (isOpen()) return;
     const cp = car.group.position;
+    const r2 = CFG.signTriggerRadius * CFG.signTriggerRadius;
     for (const s of signs) {
       const dx = cp.x - s.position.x, dz = cp.z - s.position.z;
-      const d2 = dx * dx + dz * dz;
-      if (d2 < CFG.signTriggerRadius * CFG.signTriggerRadius && now - s.lastTriggered > CFG.signCooldown) {
-        s.lastTriggered = Infinity;
-        openModal(s, () => { s.lastTriggered = now; });
-        break;
+      const inZone = (dx * dx + dz * dz) < r2;
+      if (inZone && !s.wasInZone && !isOpen()) {
+        openModal(s, () => { s.visited = true; });
       }
+      s.wasInZone = inZone;
     }
   }
 
