@@ -8,7 +8,7 @@ import { buildPlayground } from './world/playground.js';
 import { buildLand } from './world/land.js';
 import { bindDayNight } from './world/daynight-v2.js';
 import { buildRoads } from './world/roads.js';
-import { buildOSMRoads, projectLatLng } from './world/roads-osm.js';
+import { buildOSMRoads, projectLatLng } from './world/roads-osm-v2.js';
 import { buildCoastline } from './world/coastline.js';
 import { buildWater } from './world/water.js';
 import { buildLandmarks } from './world/landmarks.js';
@@ -53,6 +53,7 @@ async function main() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(CFG.sky);
   scene.fog = new THREE.Fog(CFG.fog.color, CFG.fog.near, CFG.fog.far);
+  window.__scene = scene;
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
