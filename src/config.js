@@ -1,7 +1,29 @@
 // CFG — SSOT. Every tunable lives here.
+//
+// PALETTE CONSTITUTION (Apple HIG: clarity / deference / depth)
+// Every visible color in the world MUST come from this palette.
+// 8 hues max. Each HDB cluster locks one tone (warm or cool) for
+// neighborhood identity — Memoji-style coherence, not asset-pack chaos.
+export const PALETTE = {
+  sky:        0xc8dcee,        // soft tropical day blue
+  skyNight:   0x0a1428,        // deep night with hint of cloud
+  fog:        0xc4d4e0,        // sky-tinted haze for atmospheric perspective
+  fogNight:   0x10182a,
+  sea:        0x4d8aab,        // saturated teal — recognizable Marina Bay
+  land:       0x7aaa6e,        // softer tropical green than old saturated 0x4f7242
+  road:       0x2e2e36,
+  accent:     0xffb85c,        // MBS / Supertrees / Flyer warm emissive (single accent)
+  hdbWarm:   [0xe8d7b4, 0xd9a88c],   // cream + terracotta
+  hdbCool:   [0xc5d5c0, 0xb8c8d8],   // mint + slate-blue
+  voidDeck:   0x3a3530,        // recessed darker band at HDB ground floor
+  rooftop:    0x6a6258,        // water-tank / lift-motor box on top
+};
+
 export const CFG = {
-  sky:    0x9cc1e0,                           // partly-cloudy SG day blue (fallback before HDRI loads)
-  fog:    { color: 0xb6cee0, near: 60, far: 280 },   // tighter haze — far roads soft-fade, no aliasing buzz
+  palette: PALETTE,
+  sky:    PALETTE.sky,                          // legacy alias
+  // Tighter fog — pushes far estates into haze, focuses player on ~200m around car
+  fog:    { color: PALETTE.fog, near: 60, far: 300 },
 
   camera: {
     fov: 58, near: 0.1, far: 900,
@@ -39,7 +61,7 @@ export const CFG = {
   },
 
   // Marina Bay water (visual only, soft no-go ring)
-  water: { center: [0, -90], radius: 60, color: 0x2a6a8a },
+  water: { center: [0, -90], radius: 60, color: PALETTE.sea },
 
   // 5 info signs — REAL Singapore lat/lng (resolved to world via projectLatLng at build time)
   signs: [
@@ -88,17 +110,19 @@ export const CFG = {
   ],
 
   // HDB clusters — placed at REAL Singapore neighborhoods (resolved via projectLatLng).
-  // Each cluster is a small group of 4-6 towers around a center point.
+  // Each cluster is a mini town: ~70% slab blocks (long 50–80m × 32–48m tall),
+  // ~30% point blocks (square 22×22 × 70–90m tall). Every block gets a darker
+  // void deck base + small rooftop water tank — the silhouette features that
+  // make HDB recognizable. Per-cluster `tone` (warm|cool) gives identity.
   hdb: {
-    minHeight: 36, maxHeight: 64,
-    palette: [0xc8bfa6, 0xe6dac4, 0xb5a98e, 0xd6c8b0],
+    palette: { warm: PALETTE.hdbWarm, cool: PALETTE.hdbCool },
     clusters: [
-      { name: 'Toa Payoh',   latLng: [1.3343, 103.8479], count: 6, spread: 12 },
-      { name: 'Bishan',      latLng: [1.3504, 103.8480], count: 5, spread: 10 },
-      { name: 'Ang Mo Kio',  latLng: [1.3690, 103.8460], count: 6, spread: 14 },
-      { name: 'Tampines',    latLng: [1.3496, 103.9568], count: 5, spread: 12 },
-      { name: 'Jurong East', latLng: [1.3329, 103.7436], count: 5, spread: 12 },
-      { name: 'Woodlands',   latLng: [1.4382, 103.7891], count: 4, spread: 10 },
+      { name: 'Toa Payoh',   latLng: [1.3343, 103.8479], count: 7, spread: 36, tone: 'warm' },
+      { name: 'Bishan',      latLng: [1.3504, 103.8480], count: 6, spread: 32, tone: 'cool' },
+      { name: 'Ang Mo Kio',  latLng: [1.3690, 103.8460], count: 8, spread: 42, tone: 'warm' },
+      { name: 'Tampines',    latLng: [1.3496, 103.9568], count: 7, spread: 38, tone: 'cool' },
+      { name: 'Jurong East', latLng: [1.3329, 103.7436], count: 6, spread: 36, tone: 'warm' },
+      { name: 'Woodlands',   latLng: [1.4382, 103.7891], count: 5, spread: 30, tone: 'cool' },
     ],
   },
   // Suburb belt — Kenney houses placed further out for visual variety

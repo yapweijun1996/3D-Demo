@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CFG } from '../config.js';
+import { CFG, PALETTE } from '../config.js';
 import { instanceFromGLB, matricesFromPlacements } from '../loaders/instance-from-glb.js';
 
 // HDB blocks placed at REAL Singapore neighborhoods (Toa Payoh, Bishan, Ang Mo Kio,
@@ -13,63 +13,109 @@ export function buildBuildings(scene, assets, proj) {
   return lit;
 }
 
+// HDB clusters — Apple-HIG / SG-typology rebuild.
+// 70/30 mix of slab + point blocks per cluster, each with void deck (recessed
+// dark base) + rooftop water tank (small box). Per-cluster tone (warm/cool)
+// gives instant neighborhood identity. Three InstancedMesh batches share the
+// scene budget regardless of cluster count.
 function buildHDBClusters(scene, proj) {
-  const { clusters, minHeight, maxHeight, palette } = CFG.hdb;
-  const totalCount = clusters.reduce((s, c) => s + c.count, 0);
+  const { clusters, palette } = CFG.hdb;
   const winTex = makeWindowTexture(7, 22, 0.45);
 
+  // Compute totals: each cluster splits 70% slab / 30% point.
+  let total = 0;
+  for (const c of clusters) {
+    c._ptCount = Math.max(1, Math.round(c.count * 0.30));
+    c._slCount = c.count - c._ptCount;
+    total += c.count;
+  }
+
   const bodyGeo = new THREE.BoxGeometry(1, 1, 1);
-  const capGeo = new THREE.BoxGeometry(1.04, 0.06, 1.04);
+  const tankGeo = new THREE.BoxGeometry(1, 1, 1);
+  const voidGeo = new THREE.BoxGeometry(1, 1, 1);
 
   const bodyMat = new THREE.MeshStandardMaterial({
     map: winTex, emissiveMap: winTex, emissive: 0xffffff,
-    emissiveIntensity: 0.30, roughness: 0.85,
+    emissiveIntensity: 0.05, roughness: 0.85,
   });
-  const capMat = new THREE.MeshStandardMaterial({ color: 0x4a4650, roughness: 0.85 });
+  const tankMat = new THREE.MeshStandardMaterial({ color: PALETTE.rooftop, roughness: 0.9 });
+  const voidMat = new THREE.MeshStandardMaterial({ color: PALETTE.voidDeck, roughness: 0.95 });
 
-  const bodies = new THREE.InstancedMesh(bodyGeo, bodyMat, totalCount);
-  const caps = new THREE.InstancedMesh(capGeo, capMat, totalCount);
-  bodies.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(totalCount * 3), 3);
+  const bodies = new THREE.InstancedMesh(bodyGeo, bodyMat, total);
+  const tanks  = new THREE.InstancedMesh(tankGeo, tankMat, total);
+  const voids  = new THREE.InstancedMesh(voidGeo, voidMat, total);
+  bodies.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(total * 3), 3);
 
-  const m = new THREE.Matrix4();
-  const e = new THREE.Euler();
-  const q = new THREE.Quaternion();
-  const t = new THREE.Vector3();
-  const sV = new THREE.Vector3();
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  const t = new THREE.Vector3(), sV = new THREE.Vector3();
   const colTmp = new THREE.Color();
+  const VOID_H = 3.0;        // ground-floor open columns — dark recessed band
   let i = 0;
 
   for (const cluster of clusters) {
     const [cx, cz] = proj(cluster.latLng[0], cluster.latLng[1]);
-    for (let k = 0; k < cluster.count; k++) {
-      // place around cluster center with small jitter
-      const a = (k / cluster.count) * Math.PI * 2 + Math.random() * 0.6;
-      const r = cluster.spread * (0.4 + Math.random() * 0.6);
+    const tonePalette = palette[cluster.tone] || palette.warm;
+
+    const placeBlock = (isPoint, idxInCluster) => {
+      // Distribute around cluster center using golden-angle for even spread
+      const a = idxInCluster * 2.39996323 + Math.random() * 0.4;     // golden angle radians
+      const r = cluster.spread * (0.3 + Math.random() * 0.7);
       const px = cx + Math.cos(a) * r;
       const pz = cz + Math.sin(a) * r;
-      const w = 18 + Math.random() * 8;
-      const h = minHeight + Math.random() * (maxHeight - minHeight);
-      const d = 11 + Math.random() * 4;
-      const rot = Math.random() * Math.PI * 2;
+      // Axis-align for clarity (Apple HIG: silhouettes over noise) — pick one of 2 cardinal rots
+      const rot = Math.random() < 0.5 ? 0 : Math.PI / 2;
+
+      let w, h, d;
+      if (isPoint) {
+        // Point block — square footprint, tall
+        w = 22; d = 22;
+        h = 70 + Math.random() * 22;
+      } else {
+        // Slab block — long footprint, mid-height
+        w = 50 + Math.random() * 28;
+        d = 12;
+        h = 32 + Math.random() * 14;
+      }
 
       e.set(0, rot, 0); q.setFromEuler(e);
-      sV.set(w, h, d); t.set(px, h / 2, pz);
+
+      // BODY — sits above void deck, occupies (h - VOID_H) vertically
+      const bodyH = h - VOID_H;
+      sV.set(w, bodyH, d); t.set(px, VOID_H + bodyH / 2, pz);
       m.compose(t, q, sV); bodies.setMatrixAt(i, m);
 
-      sV.set(w, 1, d); t.set(px, h, pz);
-      m.compose(t, q, sV); caps.setMatrixAt(i, m);
+      // VOID DECK — bottom 3m, slightly inset XZ (recess look)
+      sV.set(w * 0.96, VOID_H, d * 0.96); t.set(px, VOID_H / 2, pz);
+      m.compose(t, q, sV); voids.setMatrixAt(i, m);
 
-      colTmp.set(palette[i % palette.length]).multiplyScalar(0.85 + Math.random() * 0.3);
+      // ROOFTOP WATER TANK — small box centered on roof, off-center for asymmetry
+      const tankW = isPoint ? w * 0.55 : w * 0.30;
+      const tankD = isPoint ? d * 0.55 : d * 0.65;
+      const tankH = 2.5;
+      const tankOffX = isPoint ? 0 : (Math.random() - 0.5) * w * 0.3;
+      // Apply rotation to tank offset
+      const cos = Math.cos(rot), sin = Math.sin(rot);
+      const tx = px + cos * tankOffX;
+      const tz = pz + sin * tankOffX;
+      sV.set(tankW, tankH, tankD); t.set(tx, h + tankH / 2, tz);
+      m.compose(t, q, sV); tanks.setMatrixAt(i, m);
+
+      colTmp.set(tonePalette[i % tonePalette.length]).multiplyScalar(0.92 + Math.random() * 0.14);
       bodies.instanceColor.setXYZ(i, colTmp.r, colTmp.g, colTmp.b);
       i++;
-    }
+    };
+
+    let idx = 0;
+    for (let k = 0; k < cluster._slCount; k++) placeBlock(false, idx++);
+    for (let k = 0; k < cluster._ptCount; k++) placeBlock(true,  idx++);
   }
+
   bodies.instanceMatrix.needsUpdate = true;
   bodies.instanceColor.needsUpdate = true;
-  caps.instanceMatrix.needsUpdate = true;
-  bodies.castShadow = false; bodies.receiveShadow = true;
-  caps.castShadow = false;
-  scene.add(bodies); scene.add(caps);
+  tanks.instanceMatrix.needsUpdate = true;
+  voids.instanceMatrix.needsUpdate = true;
+  bodies.receiveShadow = true;
+  scene.add(bodies); scene.add(tanks); scene.add(voids);
   return { bodyMat };
 }
 

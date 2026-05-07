@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { PALETTE } from '../config.js';
 
 // Day ↔ Night with 3s eased lerp.
 // What lerps: fog color, sun/hemi/ambient colors + intensities.
@@ -11,14 +12,18 @@ const DAY_HDR   = './assets/hdr/sky_1k.hdr';
 const NIGHT_HDR = './assets/hdr/sky_night_1k.hdr';
 const LERP_DURATION = 3.0;          // seconds
 
+// Apple HIG: tighter fog band (60–300) pushes far estates into atmospheric
+// haze, letting the eye lock on the ~200m around the car. Hemi ground
+// darkened so it doesn't repeat the land color (was 0x4a5440 ≈ land —
+// killed depth perception).
 const DAY = {
-  fog: { color: 0xc4d4e0, near: 80,  far: 380 },     // pushed far so distant roads readable
+  fog: { color: PALETTE.fog,      near: 60, far: 300 },
   sun: { color: 0xfff2d6, intensity: 1.2 },
-  hemi: { sky: 0xc8dcef, ground: 0x4a5440, intensity: 0.40 },
+  hemi: { sky: PALETTE.sky, ground: 0x252520, intensity: 0.40 },
   amb: { color: 0x9bb4cf, intensity: 0.15 },
 };
 const NIGHT = {
-  fog: { color: 0x10182a, near: 40, far: 200 },
+  fog: { color: PALETTE.fogNight, near: 30, far: 180 },
   sun: { color: 0x9bb4d6, intensity: 0.18 },
   hemi: { sky: 0x18243a, ground: 0x0c1018, intensity: 0.25 },
   amb: { color: 0x404a72, intensity: 0.30 },
@@ -44,8 +49,8 @@ export function bindDayNight(scene, renderer, pmrem, lights, tickers) {
   // Sky backgrounds — plain colors so HDRI sun-glow doesn't dominate the
   // viewport.  HDRI textures are still used for environment (reflections),
   // which is where they belong.
-  const DAY_SKY   = new THREE.Color(0x9cc8ea);          // tropical clear-sky blue
-  const NIGHT_SKY = new THREE.Color(0x05080f);          // deep night with hint of cloud
+  const DAY_SKY   = new THREE.Color(PALETTE.sky);
+  const NIGHT_SKY = new THREE.Color(PALETTE.skyNight);
 
   Promise.all([ready(DAY_HDR), ready(NIGHT_HDR)]).then(([d, n]) => {
     dayEnv = d.env; dayBg = DAY_SKY;
