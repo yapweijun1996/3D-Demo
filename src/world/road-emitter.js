@@ -109,7 +109,8 @@ export function walkAtSpacing(ways, project, intervalMeters, cb) {
   let k = 0;
   for (let wi = 0; wi < ways.length; wi++) {
     const pts = ways[wi].g.map(([lat, lng]) => project(lat, lng));
-    let cursor = 0;                      // arc-length carryover from previous segment
+    let nextAt = intervalMeters;       // distance from way start to next sample
+    let cumArc = 0;                    // distance covered by completed segments
     for (let i = 0; i < pts.length - 1; i++) {
       const [x1, z1] = pts[i];
       const [x2, z2] = pts[i + 1];
@@ -118,16 +119,16 @@ export function walkAtSpacing(ways, project, intervalMeters, cb) {
       if (len < 0.05) continue;
       const tanX = dx / len, tanZ = dz / len;
       const perpX = -tanZ, perpZ = tanX;
-      // First sample lands at distance (intervalMeters - cursor) from segment start.
-      let t = intervalMeters - cursor;
-      while (t < len) {
+      // Emit every sample whose absolute position falls inside this segment.
+      while (nextAt <= cumArc + len) {
+        const t = nextAt - cumArc;     // local distance into segment
         const x = x1 + tanX * t;
         const z = z1 + tanZ * t;
         cb({ x, z, perpX, perpZ, tanX, tanZ, wayIndex: wi, k });
         k++;
-        t += intervalMeters;
+        nextAt += intervalMeters;
       }
-      cursor = (cursor + len) % intervalMeters;
+      cumArc += len;
     }
   }
   return k;     // total count for callers to size InstancedMesh

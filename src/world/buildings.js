@@ -2,14 +2,15 @@ import * as THREE from 'three';
 import { CFG, PALETTE } from '../config.js';
 import { instanceFromGLB, matricesFromPlacements } from '../loaders/instance-from-glb.js';
 import { DISTRICTS, TYPOLOGY } from './districts.js';
+import { walkAtSpacing } from './road-emitter.js';
 
 // HDB blocks placed at REAL Singapore neighborhoods (Toa Payoh, Bishan, Ang Mo Kio,
 // Tampines, Jurong East, Woodlands), via projectLatLng from roads-osm.
 // Falls back to one big procedural ring if proj not available.
-export function buildBuildings(scene, assets, proj) {
+export function buildBuildings(scene, assets, proj, ways) {
   const lit = proj ? buildHDBClusters(scene, proj) : buildHDBFallbackRing(scene);
   buildSuburbRing(scene, assets, proj);
-  if (proj) buildDistrictBuildings(scene, proj);    // T08-T10
+  if (proj) buildDistrictBuildings(scene, proj, ways);    // T08-T10
   // Caller reads `lit.bodyMat.emissiveIntensity` each frame to drive
   // window-glow with day/night phase. Daytime ≈ 0.05, night ≈ 1.8.
   return lit;
@@ -18,7 +19,7 @@ export function buildBuildings(scene, assets, proj) {
 // Per-district typology dispatcher. For each district whose typology requires
 // it, place buildings inside its bbox via the matching builder. Skips HDB
 // (already covered by buildHDBClusters above) and PARK (no buildings).
-function buildDistrictBuildings(scene, proj) {
+function buildDistrictBuildings(scene, proj, ways) {
   let totalAdded = 0;
   for (const d of DISTRICTS) {
     const [sw_x, sw_z] = proj(d.bbox[0], d.bbox[1]);
@@ -29,10 +30,10 @@ function buildDistrictBuildings(scene, proj) {
 
     let added = 0;
     switch (d.typology) {
-      case TYPOLOGY.TOWER:     added = buildTowers(scene, region, d);     break;
-      case TYPOLOGY.COLONIAL:  added = buildColonial(scene, region, d);   break;
-      case TYPOLOGY.MALL:      added = buildMallBlocks(scene, region, d); break;
-      case TYPOLOGY.SHOPHOUSE: added = buildShophouses(scene, region, d); break;
+      case TYPOLOGY.TOWER:     added = buildTowers(scene, region, d);                  break;
+      case TYPOLOGY.COLONIAL:  added = buildColonial(scene, region, d);                break;
+      case TYPOLOGY.MALL:      added = buildMallBlocks(scene, region, d);              break;
+      case TYPOLOGY.SHOPHOUSE: added = buildShophouses(scene, region, d, proj, ways);  break;
       // hdb / park handled elsewhere
     }
     totalAdded += added;
@@ -42,10 +43,86 @@ function buildDistrictBuildings(scene, proj) {
 
 // ---- T08 stubs (T09/T10 expand) ----
 
-function buildShophouses(scene, region, district) {
-  // T09 implements continuous rows along secondary roads. T08 placeholder:
-  // 0 buildings (skip until T09 lands so the area is empty rather than wrong).
-  return 0;
+// T09: continuous shophouse rows along Chinatown's secondary/tertiary roads.
+// 3-story, 5-6m frontage, 12m depth, pitched terracotta roof, pastel facade
+// from district palette. Placed via walkAtSpacing(6m) on roads inside the
+// Chinatown bbox so they hug the streetline like real shophouses.
+function buildShophouses(scene, region, district, proj, ways) {
+  if (!ways || !proj) return 0;
+
+  // Filter: roads inside this district's bbox.
+  const inRegion = (lat, lng) => {
+    const [x, z] = proj(lat, lng);
+    return x >= region.xMin && x <= region.xMax && z >= region.zMin && z <= region.zMax;
+  };
+  const districtWays = ways.filter(w => {
+    if (!['primary', 'secondary', 'tertiary', 'residential'].includes(w.t)) return false;
+    if (w.g.length < 2) return false;
+    // Any vertex inside the bbox = include this way (catches edge-crossing
+    // ways that midpoint test would miss).
+    return w.g.some(([la, lo]) => inRegion(la, lo));
+  });
+
+  if (districtWays.length === 0) return 0;
+
+  // OSM ways in this dataset are short fragments (2-3m each) so the walker
+  // interval must be smaller than typical segment length to actually emit
+  // anything. 1.5m interval + (k % 4 keep) gives ~6m effective spacing
+  // between shophouses.
+  const placements = [];
+  walkAtSpacing(districtWays, proj, 1.5, ({ x, z, perpX, perpZ, k }) => {
+    if (k % 4 !== 0) return;        // keep every 4th sample
+
+    if (!(x >= region.xMin && x <= region.xMax && z >= region.zMin && z <= region.zMax)) return;
+    const side = (k % 2) ? 1 : -1;     // both sides of street
+    // Push past sidewalk so house front sits on the kerb.
+    const pushOut = 6.5;
+    const px = x + perpX * pushOut * side;
+    const pz = z + perpZ * pushOut * side;
+    const yaw = Math.atan2(perpZ * side, perpX * side);
+    placements.push({ x: px, z: pz, yaw, paletteIdx: k });
+  });
+
+  if (placements.length === 0) return 0;
+
+  // Body: per-instance color via instanceColor; 3 stories tall (~10m).
+  const bodyGeo = new THREE.BoxGeometry(1, 1, 1);
+  const bodyMat = new THREE.MeshStandardMaterial({ roughness: 0.85 });
+  const bodies = new THREE.InstancedMesh(bodyGeo, bodyMat, placements.length);
+  bodies.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(placements.length * 3), 3);
+
+  // Roof: terracotta cone (4-sided pyramid via ConeGeometry rotated).
+  const roofGeo = new THREE.ConeGeometry(1, 1, 4);
+  roofGeo.rotateY(Math.PI / 4);
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0xb85c3c, roughness: 0.7 });
+  const roofs = new THREE.InstancedMesh(roofGeo, roofMat, placements.length);
+
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const sV = new THREE.Vector3();
+  const tV = new THREE.Vector3();
+  const colTmp = new THREE.Color();
+  const palette = district.palette;
+
+  for (let i = 0; i < placements.length; i++) {
+    const p = placements[i];
+    const W = 5.5, D = 12, H = 10;
+    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.yaw);
+
+    sV.set(W, H, D); tV.set(p.x, H / 2, p.z);
+    m.compose(tV, q, sV); bodies.setMatrixAt(i, m);
+    colTmp.set(palette[p.paletteIdx % palette.length]);
+    bodies.instanceColor.setXYZ(i, colTmp.r, colTmp.g, colTmp.b);
+
+    sV.set(W * 1.1, 2.5, D * 1.1); tV.set(p.x, H + 1.25, p.z);
+    m.compose(tV, q, sV); roofs.setMatrixAt(i, m);
+  }
+  bodies.instanceMatrix.needsUpdate = true;
+  bodies.instanceColor.needsUpdate = true;
+  roofs.instanceMatrix.needsUpdate = true;
+  bodies.castShadow = roofs.castShadow = true;
+  scene.add(bodies); scene.add(roofs);
+  return placements.length;
 }
 
 function buildTowers(scene, region, district) {
