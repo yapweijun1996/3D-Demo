@@ -27,6 +27,15 @@ export function loadGroundTextures() {
   };
 }
 
+// Polyhaven asphalt_02 1k — diffuse + nor_gl + roughness.
+export function loadRoadTextures() {
+  return {
+    map:          load('./assets/textures/road/asphalt_diff_1k.jpg', { srgb: true }),
+    normalMap:    load('./assets/textures/road/asphalt_nor_1k.jpg'),
+    roughnessMap: load('./assets/textures/road/asphalt_rough_1k.jpg'),
+  };
+}
+
 // Tile a texture set so 1 tile == `tileMeters` world units. ShapeGeometry +
 // PlaneGeometry both have UVs = world coords (after we feed shape XZ in meters
 // or set repeat manually); we adjust .repeat so 1 UV unit == tileMeters.

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadRoadTextures, setRepeatMeters } from './textures.js';
 
 // Render Singapore central road network from OSM data.
 // Source: assets/data/sg-roads.json (Overpass: 5 highway tiers,
@@ -51,6 +52,13 @@ export async function buildOSMRoads(scene) {
     return [dx * worldScale, dz * worldScale];
   };
 
+  // PBR asphalt — shared by every tier (color tint preserves tier hierarchy).
+  // Tile = 4m so the rough grain reads at car-cam height without looking like
+  // wallpaper at distance.
+  const ROAD_TILE_M = 4;
+  const roadMaps = loadRoadTextures();
+  setRepeatMeters(roadMaps, 1 / ROAD_TILE_M, 1 / ROAD_TILE_M);
+
   const minimapSegs = [];
   let totalWays = 0;
   const counts = {};
@@ -62,17 +70,20 @@ export async function buildOSMRoads(scene) {
     if (!ways.length) continue;
 
     const geo = buildStripGeometry(ways, _proj, tier.w);
-    // DoubleSide is REQUIRED — buildStripGeometry winds vertices so the front
-    // face points DOWN (-Y); from car-cam looking from above we see the back
-    // face, and default FrontSide culls it = invisible.  3 hours of debugging
-    // 'why is this gray-on-green road blending into grass' was actually:
-    // it wasn't rendering at all because of backface culling.
-    const mat = new THREE.MeshBasicMaterial({
-      color: tier.color, fog: true, side: THREE.DoubleSide,
+    // PBR asphalt with tier color tint. UV box-projected from world XZ (in
+    // meters) so the shared texture tiles uniformly. receiveShadow on so the
+    // car's shadow lands on the road. DoubleSide kept for the legacy winding
+    // (front face points -Y); car-cam looks from above and would cull the
+    // back face otherwise.
+    const mat = new THREE.MeshStandardMaterial({
+      color: tier.color, roughness: 1.0, metalness: 0.0,
+      side: THREE.DoubleSide,
+      ...roadMaps,
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.y = tier.y;
     mesh.renderOrder = 1;
+    mesh.receiveShadow = true;
     scene.add(mesh);
 
     // White center lane line — Singapore standard. Solid for trunk (single
@@ -111,11 +122,19 @@ export function projectLatLng(lat, lng) {
 
 function buildStripGeometry(ways, project, width, dashed = false) {
   const positions = [];
+  const uvs = [];                  // box-projected UV in meters: (xWorld, zWorld)
   const indices = [];
   let vi = 0;
   const halfW = width / 2;
   const DASH_LEN = 4.0;            // world units of dash + gap cycle
   const DASH_DUTY = 0.55;          // 55% painted, 45% gap
+
+  function pushQuad(xa, za, xb, zb, nx, nz) {
+    positions.push(xa + nx, 0, za + nz, xa - nx, 0, za - nz, xb + nx, 0, zb + nz, xb - nx, 0, zb - nz);
+    uvs.push(xa + nx, za + nz, xa - nx, za - nz, xb + nx, zb + nz, xb - nx, zb - nz);
+    indices.push(vi, vi + 1, vi + 2, vi + 1, vi + 3, vi + 2);
+    vi += 4;
+  }
 
   for (const way of ways) {
     const pts = way.g.map(([lat, lng]) => project(lat, lng));
@@ -144,28 +163,26 @@ function buildStripGeometry(ways, project, width, dashed = false) {
             const t0 = cursor, t1 = cursor + advance;
             const xa = x1 + dx * (t0 / len), za = z1 + dz * (t0 / len);
             const xb = x1 + dx * (t1 / len), zb = z1 + dz * (t1 / len);
-            positions.push(xa + nx, 0, za + nz, xa - nx, 0, za - nz, xb + nx, 0, zb + nz, xb - nx, 0, zb - nz);
-            indices.push(vi, vi + 1, vi + 2, vi + 1, vi + 3, vi + 2);
-            vi += 4;
+            pushQuad(xa, za, xb, zb, nx, nz);
           }
           cursor += advance;
         }
         s += len;
       } else {
-        positions.push(
-          x1 + nx, 0, z1 + nz,
-          x1 - nx, 0, z1 - nz,
-          x2 + nx, 0, z2 + nz,
-          x2 - nx, 0, z2 - nz,
-        );
-        indices.push(vi, vi + 1, vi + 2, vi + 1, vi + 3, vi + 2);
-        vi += 4;
+        pushQuad(x1, z1, x2, z2, nx, nz);
       }
     }
   }
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
   geo.setIndex(indices);
+  // Normals all point +Y (road lies flat on XZ). Computing per-vertex from a
+  // strip with all y=0 would yield NaN; setting uniform up directly is correct
+  // and one BufferAttribute cheaper than computeVertexNormals().
+  const normals = new Float32Array(positions.length);
+  for (let i = 1; i < normals.length; i += 3) normals[i] = 1;
+  geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
   return geo;
 }
