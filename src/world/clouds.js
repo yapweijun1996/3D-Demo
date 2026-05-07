@@ -28,9 +28,9 @@ export function buildClouds(scene, tickers) {
   const geo = new THREE.PlaneGeometry(120, 70);
   // No rotation — keep planes vertical so they're visible looking horizontally.
   // Each instance gets random Y rotation around its center for variety.
+  // DEBUG: bright opaque red — verify geometry + positions render at all.
   const mat = new THREE.MeshBasicMaterial({
-    map: tex, transparent: true, opacity: 0.95,
-    depthWrite: false, fog: false, side: THREE.DoubleSide,
+    color: 0xff2222, side: THREE.DoubleSide,
   });
   const mesh = new THREE.InstancedMesh(geo, mat, COUNT);
   // Disable frustum culling: InstancedMesh frustum check uses the geometry
