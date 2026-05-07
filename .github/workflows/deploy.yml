@@ -9,6 +9,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Opt into Node 24 runtime now (default starting 2026-06-02). Future-proof.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 # Single concurrent deploy; cancel in-progress runs if a new commit lands.
 concurrency:
   group: pages

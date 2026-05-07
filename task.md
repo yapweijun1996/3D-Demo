@@ -55,20 +55,20 @@
 ### Phase B — Asset pipeline + GLB instances
 **Estimate**: 1.0–1.5 h · **Files**: +2 (loaders/) + 5 GLB · **LOC**: +200
 
-- [ ] B.1 `loaders/glb-cache.js` — Promise-cached `loadGLB(path)`
-- [ ] B.2 `loaders/instance-from-glb.js` — `instanceFromGLB(path, matrices[])`
-- [ ] B.3 `scripts/fetch-assets.sh` — curl + unzip CC0 packs
+- [x] B.1 `loaders/glb-cache.js` — Promise-cached `loadGLB(path)` + `loadAll(paths, onProgress)`
+- [x] B.2 `loaders/instance-from-glb.js` — `instanceFromGLB(gltf, matrices[])` + `matricesFromPlacements`
+- [ ] B.3 `scripts/fetch-assets.sh` — curl + unzip CC0 packs (deferred, needs verified URLs)
 - [ ] B.4 `assets/glb/sedan.glb` (Kenney Vehicle Kit)
 - [ ] B.5 `assets/glb/palm.glb` (Quaternius Tropical)
 - [ ] B.6 `assets/glb/building_tower.glb` (Kenney City Kit)
 - [ ] B.7 `assets/glb/cone.glb` (Kenney Construction)
 - [ ] B.8 `assets/glb/lamppost.glb` (Kenney City Kit, for Phase D)
-- [ ] B.9 `assets/CREDITS.md` — every URL + license line
+- [x] B.9 `assets/CREDITS.md` — placeholder with source URLs (entries marked _(pending)_ until B.4-B.8 lands GLB files)
 - [ ] B.10 Replace `palms.js` builder with GLB instance call
 - [ ] B.11 Replace `buildings.js` builder with GLB instance call
 - [ ] B.12 Replace `cones.js` builder with GLB instance call
 - [ ] B.13 Replace `vehicle/car.js` chassis with GLB sedan, align Rapier wheel anchors
-- [ ] B.14 `ui/splash.js` — loading bar with byte progress
+- [x] B.14 `ui/splash.js` — loading bar wired to physics init progress
 - [ ] B.15 Verify: bundle ≤ 5MB, drawcalls ≤ 30, all CC0 credited
 
 ### Phase C — Water + weather

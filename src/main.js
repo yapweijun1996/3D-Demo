@@ -25,8 +25,12 @@ import { openModal, closeModal, isOpen } from './ui/modal.js';
 import { createStats } from './ui/stats.js';
 import { createMinimap } from './ui/minimap.js';
 import { maybeBindTouchControls } from './ui/touch-controls.js';
+import { createSplash } from './ui/splash.js';
 
 async function main() {
+  const splash = createSplash();
+  splash.setProgress(0.05, 'initializing renderer...');
+
   const canvas = document.getElementById('c');
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -63,21 +67,26 @@ async function main() {
 
   const car = buildCar(scene);
 
+  splash.setProgress(0.4, 'building scene...');
   // Physics — try to init Rapier; on failure, fall back to kinematic v0.2 drive.
   let physicsReady = false, carPhys = null, RAPIER = null, world = null;
   if (CFG.physics.enabled) {
     try {
+      splash.setProgress(0.55, 'loading physics engine...');
       const ph = await initPhysics();
       RAPIER = ph.RAPIER; world = ph.world;
       buildStaticColliders(RAPIER, world);
       carPhys = buildCarVehicle(RAPIER, world, CFG.car.spawn);
       physicsReady = true;
+      splash.setProgress(0.9, 'physics ready');
       console.log('[physics] Rapier ready');
     } catch (err) {
       console.warn('[physics] init failed, falling back to kinematic drive:', err);
       CFG.physics.enabled = false;
     }
   }
+  splash.setProgress(1.0, 'go!');
+  setTimeout(() => splash.hide(), 200);
 
   const drive = createDrive(car, physicsReady ? { RAPIER, world, carPhys } : null);
   const followCam = createFollowCam(camera, car);
