@@ -53,7 +53,6 @@ async function main() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(CFG.sky);
   scene.fog = new THREE.Fog(CFG.fog.color, CFG.fog.near, CFG.fog.far);
-  window.__scene = scene;
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
