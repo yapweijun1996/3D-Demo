@@ -79,7 +79,8 @@ async function main() {
   splash.setProgress(0.4, 'building scene...');
   // Build all visuals + register legacy colliders for landmarks/cones/signs.
   const tickers = [];
-  buildSky(scene);
+  // buildSky removed — was a dusk-gradient sphere that overrode scene.background.
+  // sky now comes from scene.background (plain blue Color) set by daynight-v2.
   const lights = buildLighting(scene);
   bindDayNight(scene, renderer, pmrem, lights, tickers);
   // Try OSM first; fall back to handcrafted cross + flat grass if fetch fails
