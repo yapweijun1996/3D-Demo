@@ -25,14 +25,13 @@ export function buildClouds(scene, tickers) {
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
 
-  const geo = new THREE.PlaneGeometry(60, 36);
+  const geo = new THREE.PlaneGeometry(80, 50);
   geo.rotateX(Math.PI / 2);                      // face down (lay flat)
   const mat = new THREE.MeshBasicMaterial({
-    map: tex, transparent: true, opacity: 0.85,
-    depthWrite: false, fog: true, side: THREE.DoubleSide,
+    map: tex, transparent: true, opacity: 0.95,
+    depthWrite: false, fog: false, side: THREE.DoubleSide,
   });
   const mesh = new THREE.InstancedMesh(geo, mat, COUNT);
-  mesh.renderOrder = -1;                         // behind everything visible
   scene.add(mesh);
 
   const dummy = new THREE.Object3D();
