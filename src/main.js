@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import { CFG } from './config.js';
 import { bindInput } from './input.js';
 
-import { buildClouds } from './world/clouds-v4.js';
+import { buildClouds } from './world/clouds.js';
 import { buildLighting } from './world/lighting.js';
 import { buildPlayground } from './world/playground.js';
 import { buildLand } from './world/land.js';
-import { bindDayNight } from './world/daynight-v2.js';
+import { bindDayNight } from './world/daynight.js';
 import { buildRoads } from './world/roads.js';
-import { buildOSMRoads, projectLatLng } from './world/roads-osm-v5.js';
+import { buildOSMRoads, projectLatLng } from './world/roads-osm.js';
 import { buildCoastline } from './world/coastline.js';
 import { buildWater } from './world/water.js';
 import { buildLandmarks } from './world/landmarks.js';
@@ -53,7 +53,6 @@ async function main() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(CFG.sky);
   scene.fog = new THREE.Fog(CFG.fog.color, CFG.fog.near, CFG.fog.far);
-  window.__scene = scene;
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();

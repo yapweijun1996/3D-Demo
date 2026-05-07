@@ -12,19 +12,15 @@ const WORLD_HALF = 320;
 const LAT_TO_M = 111000;
 
 // Tier visual table — width in WORLD units, color, y-stack height (avoid z-fight).
-// Wider widths than reality so roads stay readable from a car-height camera.
-// Light-grey asphalt — high contrast against saturated green land.
-// Real Singapore-style asphalt: nearly black (0x222226 → 0x3a3a40 by tier) +
-// wider widths than reality.  Earlier 0x96969e light-grey blended into the
-// saturated green land under HDRI ambient + ACES tonemap.  Dark wins.
-// Real Singapore-style asphalt at ground level. Stack offset 0.05 between
-// tiers prevents z-fighting where roads cross.
+// Realistic-ish widths (3-5x exaggerated from real meter scale, since our
+// worldScale projects the bbox so 1 unit ≈ 22m). Y stack 0.04 between tiers
+// avoids z-fight at intersections; renderOrder enforces motorway-on-top.
 const TIERS = [
-  { t: 'motorway',  w: 10.0, color: 0x222226, y: 0.20 },
-  { t: 'trunk',     w: 8.0,  color: 0x282830, y: 0.16 },
-  { t: 'primary',   w: 6.0,  color: 0x2e2e36, y: 0.12 },
-  { t: 'secondary', w: 4.0,  color: 0x34343a, y: 0.08 },
-  { t: 'tertiary',  w: 2.5,  color: 0x3a3a40, y: 0.04 },
+  { t: 'motorway',  w: 5.0, color: 0x222226, y: 0.20 },
+  { t: 'trunk',     w: 4.0, color: 0x282830, y: 0.16 },
+  { t: 'primary',   w: 3.0, color: 0x2e2e36, y: 0.12 },
+  { t: 'secondary', w: 2.2, color: 0x34343a, y: 0.08 },
+  { t: 'tertiary',  w: 1.5, color: 0x3a3a40, y: 0.04 },
 ];
 
 let _proj = null;
@@ -83,8 +79,10 @@ export async function buildOSMRoads(scene) {
     // carriageway feel), dashed for motorway (lane separator).
     if (tier.t === 'motorway' || tier.t === 'trunk') {
       const dashed = (tier.t === 'motorway');
-      const stripeGeo = buildStripGeometry(ways, _proj, tier.w * 0.07, dashed);
-      const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });
+      const stripeGeo = buildStripGeometry(ways, _proj, tier.w * 0.10, dashed);
+      const stripeMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff, fog: true, side: THREE.DoubleSide,   // backface cull would hide stripe (same bug as roads)
+      });
       const stripe = new THREE.Mesh(stripeGeo, stripeMat);
       stripe.position.y = tier.y + 0.005;
       stripe.renderOrder = 2;
