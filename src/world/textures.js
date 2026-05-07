@@ -27,6 +27,15 @@ export function loadGroundTextures() {
   };
 }
 
+// Polyhaven coast_sand_rocks_02 1k — diffuse + nor_gl + roughness.
+export function loadSandTextures() {
+  return {
+    map:          load('./assets/textures/sand/sand_diff_1k.jpg', { srgb: true }),
+    normalMap:    load('./assets/textures/sand/sand_nor_1k.jpg'),
+    roughnessMap: load('./assets/textures/sand/sand_rough_1k.jpg'),
+  };
+}
+
 // Polyhaven asphalt_02 1k — diffuse + nor_gl + roughness.
 export function loadRoadTextures() {
   return {
