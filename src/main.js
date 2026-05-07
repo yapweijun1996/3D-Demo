@@ -101,7 +101,7 @@ async function main() {
   buildWater(scene, tickers);
   tickers.push(...buildLandmarks(scene, proj));
   const buildings = buildBuildings(scene, assets, proj);
-  buildPalms(scene);
+  buildPalms(scene, osm?.ways, proj);
   buildCones(scene, assets);
   const signs = buildSigns(scene, proj);
   const lamps = (osm?.ways && proj) ? buildStreetLamps(scene, osm.ways, proj) : null;
