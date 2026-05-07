@@ -1,37 +1,39 @@
 import * as THREE from 'three';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 
-// Day ↔ Night toggle.  T key swaps HDRI sky + reflections, dims direct
-// light, and warms ambient.  Jump-cut (no lerp) — keep code simple,
-// add easing later if requested.
-//
-// Lights are passed in by reference from world/lighting.js (return value).
-// If lighting.js doesn't return them, we no-op gracefully.
+// Day ↔ Night with 3s eased lerp.
+// What lerps: fog color, sun/hemi/ambient colors + intensities.
+// What jump-cuts: scene.background + scene.environment (HDRI textures
+//   can't blend without a custom shader; we swap at t=0.5 of the lerp,
+//   when the fog/lights are mid-transition so the swap is least visible).
 
 const DAY_HDR   = './assets/hdr/sky_1k.hdr';
 const NIGHT_HDR = './assets/hdr/sky_night_1k.hdr';
+const LERP_DURATION = 3.0;          // seconds
 
-const FOG_DAY   = { color: 0xb6cee0, near: 60,  far: 280 };
-const FOG_NIGHT = { color: 0x10182a, near: 40,  far: 200 };
+const DAY = {
+  fog: { color: 0xc4d4e0, near: 60,  far: 280 },     // matches HDRI horizon haze
+  sun: { color: 0xfff2d6, intensity: 1.2 },
+  hemi: { sky: 0xc8dcef, ground: 0x4a5440, intensity: 0.40 },
+  amb: { color: 0x9bb4cf, intensity: 0.15 },
+};
+const NIGHT = {
+  fog: { color: 0x10182a, near: 40, far: 200 },
+  sun: { color: 0x9bb4d6, intensity: 0.18 },
+  hemi: { sky: 0x18243a, ground: 0x0c1018, intensity: 0.25 },
+  amb: { color: 0x404a72, intensity: 0.30 },
+};
 
-const SUN_DAY   = { color: 0xfff2d6, intensity: 1.2 };
-const SUN_NIGHT = { color: 0x9bb4d6, intensity: 0.18 };  // moonlight
-
-const HEMI_DAY   = { sky: 0xc8dcef, ground: 0x4a5440, intensity: 0.40 };
-const HEMI_NIGHT = { sky: 0x18243a, ground: 0x0c1018, intensity: 0.25 };
-
-const AMB_DAY   = { color: 0x9bb4cf, intensity: 0.15 };
-const AMB_NIGHT = { color: 0x404a72, intensity: 0.30 };
-
-export function bindDayNight(scene, renderer, pmrem, lights) {
+export function bindDayNight(scene, renderer, pmrem, lights, tickers) {
   const loader = new RGBELoader();
   let mode = 'day';
   let dayEnv = null, nightEnv = null;
   let dayBg = null,  nightBg = null;
 
-  // Day already loaded by main.js.  Capture once HDRI lands by reading
-  // scene.environment / scene.background after the first frame.
-  // Simpler: load both ourselves.
+  // Tween state
+  let lerpFrom = null, lerpTo = null, lerpT = 1.0;       // t=1 means settled
+  let textureSwapped = false;
+
   const ready = (path) => new Promise((resolve, reject) =>
     loader.load(path, (tex) => {
       tex.mapping = THREE.EquirectangularReflectionMapping;
@@ -42,44 +44,86 @@ export function bindDayNight(scene, renderer, pmrem, lights) {
   Promise.all([ready(DAY_HDR), ready(NIGHT_HDR)]).then(([d, n]) => {
     dayEnv = d.env; dayBg = d.bg;
     nightEnv = n.env; nightBg = n.bg;
-    apply('day');                    // set initial state from cached textures
+    scene.environment = dayEnv;
+    scene.background = dayBg;
+    apply(DAY);                               // settle to day immediately
     console.log('[daynight] both HDRIs cached, T to toggle');
   }).catch(err => console.warn('[daynight] HDRI load failed:', err));
 
-  function apply(next) {
-    mode = next;
-    const isDay = mode === 'day';
-    if (isDay && dayEnv) { scene.environment = dayEnv; scene.background = dayBg; }
-    if (!isDay && nightEnv) { scene.environment = nightEnv; scene.background = nightBg; }
-
-    const fog = isDay ? FOG_DAY : FOG_NIGHT;
+  // Apply a settled state (no lerp).
+  function apply(p) {
     if (scene.fog) {
-      scene.fog.color.setHex(fog.color);
-      scene.fog.near = fog.near;
-      scene.fog.far  = fog.far;
+      scene.fog.color.setHex(p.fog.color);
+      scene.fog.near = p.fog.near;
+      scene.fog.far = p.fog.far;
     }
-
     if (lights?.sun) {
-      const s = isDay ? SUN_DAY : SUN_NIGHT;
-      lights.sun.color.setHex(s.color);
-      lights.sun.intensity = s.intensity;
+      lights.sun.color.setHex(p.sun.color);
+      lights.sun.intensity = p.sun.intensity;
     }
     if (lights?.hemi) {
-      const h = isDay ? HEMI_DAY : HEMI_NIGHT;
-      lights.hemi.color.setHex(h.sky);
-      lights.hemi.groundColor.setHex(h.ground);
-      lights.hemi.intensity = h.intensity;
+      lights.hemi.color.setHex(p.hemi.sky);
+      lights.hemi.groundColor.setHex(p.hemi.ground);
+      lights.hemi.intensity = p.hemi.intensity;
     }
     if (lights?.ambient) {
-      const a = isDay ? AMB_DAY : AMB_NIGHT;
-      lights.ambient.color.setHex(a.color);
-      lights.ambient.intensity = a.intensity;
+      lights.ambient.color.setHex(p.amb.color);
+      lights.ambient.intensity = p.amb.intensity;
     }
   }
 
+  // ease in-out cubic
+  const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+  // Frame ticker — interpolate between lerpFrom and lerpTo over LERP_DURATION.
+  const tick = (now, dt) => {
+    if (lerpT >= 1.0) return;
+    lerpT = Math.min(1, lerpT + dt / LERP_DURATION);
+    const e = ease(lerpT);
+
+    const a = lerpFrom, b = lerpTo;
+    if (scene.fog) {
+      scene.fog.color.setHex(a.fog.color).lerp(new THREE.Color(b.fog.color), e);
+      scene.fog.near = a.fog.near + (b.fog.near - a.fog.near) * e;
+      scene.fog.far = a.fog.far + (b.fog.far - a.fog.far) * e;
+    }
+    if (lights?.sun) {
+      lights.sun.color.setHex(a.sun.color).lerp(new THREE.Color(b.sun.color), e);
+      lights.sun.intensity = a.sun.intensity + (b.sun.intensity - a.sun.intensity) * e;
+    }
+    if (lights?.hemi) {
+      lights.hemi.color.setHex(a.hemi.sky).lerp(new THREE.Color(b.hemi.sky), e);
+      lights.hemi.groundColor.setHex(a.hemi.ground).lerp(new THREE.Color(b.hemi.ground), e);
+      lights.hemi.intensity = a.hemi.intensity + (b.hemi.intensity - a.hemi.intensity) * e;
+    }
+    if (lights?.ambient) {
+      lights.ambient.color.setHex(a.amb.color).lerp(new THREE.Color(b.amb.color), e);
+      lights.ambient.intensity = a.amb.intensity + (b.amb.intensity - a.amb.intensity) * e;
+    }
+
+    // Swap HDRI textures at the midpoint — fog is dim there so swap is least visible.
+    if (!textureSwapped && lerpT >= 0.5) {
+      const goingNight = lerpTo === NIGHT;
+      scene.environment = goingNight ? nightEnv : dayEnv;
+      scene.background  = goingNight ? nightBg  : dayBg;
+      textureSwapped = true;
+    }
+  };
+  if (tickers) tickers.push(tick); else console.warn('[daynight] no tickers — lerp disabled');
+
+  function startLerp(target) {
+    if (!dayEnv || !nightEnv) return;          // not ready yet
+    if (mode === target) return;
+    lerpFrom = mode === 'day' ? DAY : NIGHT;
+    lerpTo   = target === 'day' ? DAY : NIGHT;
+    lerpT = 0;
+    textureSwapped = false;
+    mode = target;
+  }
+
   addEventListener('keydown', (e) => {
-    if (e.code === 'KeyT') apply(mode === 'day' ? 'night' : 'day');
+    if (e.code === 'KeyT') startLerp(mode === 'day' ? 'night' : 'day');
   });
 
-  return { apply, get mode() { return mode; } };
+  return { get mode() { return mode; }, get lerping() { return lerpT < 1; } };
 }

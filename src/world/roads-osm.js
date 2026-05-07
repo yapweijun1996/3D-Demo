@@ -15,11 +15,11 @@ const LAT_TO_M = 111000;
 // Wider widths than reality so roads stay readable from a car-height camera.
 // Asphalt brightened so it pops against green land + light-blue fog.
 const TIERS = [
-  { t: 'motorway',  w: 6.0, color: 0x55555c, y: 0.40 },
-  { t: 'trunk',     w: 4.8, color: 0x5a5a62, y: 0.36 },
-  { t: 'primary',   w: 3.6, color: 0x60606a, y: 0.32 },
-  { t: 'secondary', w: 2.6, color: 0x686872, y: 0.28 },
-  { t: 'tertiary',  w: 1.8, color: 0x70707a, y: 0.24 },
+  { t: 'motorway',  w: 6.0, color: 0x6e6e76, y: 0.40 },
+  { t: 'trunk',     w: 4.8, color: 0x747480, y: 0.36 },
+  { t: 'primary',   w: 3.6, color: 0x7c7c88, y: 0.32 },
+  { t: 'secondary', w: 2.6, color: 0x84848e, y: 0.28 },
+  { t: 'tertiary',  w: 1.8, color: 0x8a8a94, y: 0.24 },
 ];
 
 let _proj = null;

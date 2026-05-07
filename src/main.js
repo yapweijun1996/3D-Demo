@@ -80,7 +80,7 @@ async function main() {
   const tickers = [];
   buildSky(scene);
   const lights = buildLighting(scene);
-  bindDayNight(scene, renderer, pmrem, lights);
+  bindDayNight(scene, renderer, pmrem, lights, tickers);
   // Try OSM first; fall back to handcrafted cross + flat grass if fetch fails
   const osm = await buildOSMRoads(scene);
   const proj = osm?.proj;
