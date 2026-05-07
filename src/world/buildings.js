@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CFG, PALETTE } from '../config.js';
 import { instanceFromGLB, matricesFromPlacements } from '../loaders/instance-from-glb.js';
+import { DISTRICTS, TYPOLOGY } from './districts.js';
 
 // HDB blocks placed at REAL Singapore neighborhoods (Toa Payoh, Bishan, Ang Mo Kio,
 // Tampines, Jurong East, Woodlands), via projectLatLng from roads-osm.
@@ -8,9 +9,118 @@ import { instanceFromGLB, matricesFromPlacements } from '../loaders/instance-fro
 export function buildBuildings(scene, assets, proj) {
   const lit = proj ? buildHDBClusters(scene, proj) : buildHDBFallbackRing(scene);
   buildSuburbRing(scene, assets, proj);
+  if (proj) buildDistrictBuildings(scene, proj);    // T08-T10
   // Caller reads `lit.bodyMat.emissiveIntensity` each frame to drive
   // window-glow with day/night phase. Daytime ≈ 0.05, night ≈ 1.8.
   return lit;
+}
+
+// Per-district typology dispatcher. For each district whose typology requires
+// it, place buildings inside its bbox via the matching builder. Skips HDB
+// (already covered by buildHDBClusters above) and PARK (no buildings).
+function buildDistrictBuildings(scene, proj) {
+  let totalAdded = 0;
+  for (const d of DISTRICTS) {
+    const [sw_x, sw_z] = proj(d.bbox[0], d.bbox[1]);
+    const [ne_x, ne_z] = proj(d.bbox[2], d.bbox[3]);
+    const xMin = Math.min(sw_x, ne_x), xMax = Math.max(sw_x, ne_x);
+    const zMin = Math.min(sw_z, ne_z), zMax = Math.max(sw_z, ne_z);
+    const region = { xMin, xMax, zMin, zMax, width: xMax - xMin, depth: zMax - zMin };
+
+    let added = 0;
+    switch (d.typology) {
+      case TYPOLOGY.TOWER:     added = buildTowers(scene, region, d);     break;
+      case TYPOLOGY.COLONIAL:  added = buildColonial(scene, region, d);   break;
+      case TYPOLOGY.MALL:      added = buildMallBlocks(scene, region, d); break;
+      case TYPOLOGY.SHOPHOUSE: added = buildShophouses(scene, region, d); break;
+      // hdb / park handled elsewhere
+    }
+    totalAdded += added;
+  }
+  console.log(`[buildings] +${totalAdded} district buildings (towers/colonial/mall/shophouse)`);
+}
+
+// ---- T08 stubs (T09/T10 expand) ----
+
+function buildShophouses(scene, region, district) {
+  // T09 implements continuous rows along secondary roads. T08 placeholder:
+  // 0 buildings (skip until T09 lands so the area is empty rather than wrong).
+  return 0;
+}
+
+function buildTowers(scene, region, district) {
+  // T10 implements the real glass-skyscraper generator. T08 placeholder:
+  // sprinkle 6 plain dark boxes 80–200m tall to mark the CBD silhouette.
+  const N = 6;
+  const geo = new THREE.BoxGeometry(1, 1, 1);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x4a5a72, roughness: 0.4, metalness: 0.6 });
+  const inst = new THREE.InstancedMesh(geo, mat, N);
+  const m = new THREE.Matrix4(), s = new THREE.Vector3(), t = new THREE.Vector3();
+  for (let i = 0; i < N; i++) {
+    const w = 24 + Math.random() * 16, d = 24 + Math.random() * 16;
+    const h = 80 + Math.random() * 120;
+    const x = region.xMin + 20 + Math.random() * (region.width - 40);
+    const z = region.zMin + 20 + Math.random() * (region.depth - 40);
+    s.set(w, h, d); t.set(x, h / 2, z);
+    m.compose(t, new THREE.Quaternion(), s); inst.setMatrixAt(i, m);
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  inst.castShadow = true;
+  scene.add(inst);
+  return N;
+}
+
+function buildColonial(scene, region, district) {
+  // White plaster box + red pyramid roof. 2-3 stories. 4 buildings clustered
+  // around Padang (district center).
+  const N = 4;
+  const cx = (region.xMin + region.xMax) / 2;
+  const cz = (region.zMin + region.zMax) / 2;
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xf5efe0, roughness: 0.85 });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0xb85c3c, roughness: 0.7 });
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    const r = 35;
+    const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+    const w = 20 + Math.random() * 8, d = 14 + Math.random() * 6;
+    const wallH = 10 + Math.random() * 4;
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, wallH, d), wallMat);
+    wall.position.set(x, wallH / 2, z);
+    wall.castShadow = true; wall.receiveShadow = true;
+    scene.add(wall);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.7, 4, 4), roofMat);
+    roof.position.set(x, wallH + 2, z);
+    roof.rotation.y = Math.PI / 4;
+    roof.castShadow = true;
+    scene.add(roof);
+  }
+  return N;
+}
+
+function buildMallBlocks(scene, region, district) {
+  // Wide low podium (~40m × 80m × 30m). 4 along the main axis.
+  const N = 4;
+  const cx = (region.xMin + region.xMax) / 2;
+  const cz = (region.zMin + region.zMax) / 2;
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x2c2c2c, roughness: 0.5, metalness: 0.4,
+  });
+  const geo = new THREE.BoxGeometry(1, 1, 1);
+  const inst = new THREE.InstancedMesh(geo, mat, N);
+  const m = new THREE.Matrix4(), s = new THREE.Vector3(), t = new THREE.Vector3();
+  for (let i = 0; i < N; i++) {
+    const w = 60 + Math.random() * 30;
+    const d = 28 + Math.random() * 12;
+    const h = 25 + Math.random() * 25;
+    const x = cx + (i - N / 2) * 60;
+    const z = cz + (Math.random() - 0.5) * 30;
+    s.set(w, h, d); t.set(x, h / 2, z);
+    m.compose(t, new THREE.Quaternion(), s); inst.setMatrixAt(i, m);
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  inst.castShadow = true;
+  scene.add(inst);
+  return N;
 }
 
 // HDB clusters — Apple-HIG / SG-typology rebuild.
