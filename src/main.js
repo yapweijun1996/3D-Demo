@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { CFG } from './config.js';
 import { bindInput } from './input.js';
 
@@ -7,6 +6,7 @@ import { buildSky } from './world/sky.js';
 import { buildLighting } from './world/lighting.js';
 import { buildPlayground } from './world/playground.js';
 import { buildLand } from './world/land.js';
+import { bindDayNight } from './world/daynight.js';
 import { buildRoads } from './world/roads.js';
 import { buildOSMRoads, projectLatLng } from './world/roads-osm.js';
 import { buildCoastline } from './world/coastline.js';
@@ -56,17 +56,8 @@ async function main() {
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
-  // Procedural fallback first — replaced by HDRI when fetch resolves below.
+  // Procedural fallback env — replaced by daynight.js HDRI when both load.
   scene.environment = pmrem.fromScene(makeEnvScene(), 0.04).texture;
-  // HDRI sky — Poly Haven CC0 (1k Radiance HDR ~1.4MB). Async, non-blocking.
-  // Doubles as scene.background so the sky behind fog matches PBR reflections.
-  new RGBELoader().load('./assets/hdr/sky_1k.hdr', (hdrTex) => {
-    hdrTex.mapping = THREE.EquirectangularReflectionMapping;
-    const envRT = pmrem.fromEquirectangular(hdrTex);
-    scene.environment = envRT.texture;
-    scene.background = hdrTex;                 // real sky, not flat color
-    console.log('[hdri] loaded — PBR reflections + sky background active');
-  }, undefined, (err) => console.warn('[hdri] load failed, keeping procedural env:', err));
 
   const camera = new THREE.PerspectiveCamera(CFG.camera.fov, innerWidth / innerHeight, CFG.camera.near, CFG.camera.far);
 
@@ -88,12 +79,13 @@ async function main() {
   // Build all visuals + register legacy colliders for landmarks/cones/signs.
   const tickers = [];
   buildSky(scene);
-  buildLighting(scene);
+  const lights = buildLighting(scene);
+  bindDayNight(scene, renderer, pmrem, lights);
   // Try OSM first; fall back to handcrafted cross + flat grass if fetch fails
   const osm = await buildOSMRoads(scene);
   const proj = osm?.proj;
   if (proj) {
-    buildLand(scene);                          // ocean plate + land plate (silhouette via coastline lines)
+    await buildLand(scene, proj, osm.bbox);    // ocean plate + real OSM island polygons
     await buildCoastline(scene, proj);         // sand-colored coastline outline ON TOP of land
   } else {
     buildPlayground(scene);                    // fallback flat grass

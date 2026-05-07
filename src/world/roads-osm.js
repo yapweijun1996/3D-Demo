@@ -13,12 +13,13 @@ const LAT_TO_M = 111000;
 
 // Tier visual table — width in WORLD units, color, y-stack height (avoid z-fight).
 // Wider widths than reality so roads stay readable from a car-height camera.
+// Asphalt brightened so it pops against green land + light-blue fog.
 const TIERS = [
-  { t: 'motorway',  w: 6.0, color: 0x2c2c32, y: 0.40 },
-  { t: 'trunk',     w: 4.8, color: 0x30303a, y: 0.36 },
-  { t: 'primary',   w: 3.6, color: 0x3a3a42, y: 0.32 },
-  { t: 'secondary', w: 2.6, color: 0x42424a, y: 0.28 },
-  { t: 'tertiary',  w: 1.8, color: 0x484850, y: 0.24 },
+  { t: 'motorway',  w: 6.0, color: 0x55555c, y: 0.40 },
+  { t: 'trunk',     w: 4.8, color: 0x5a5a62, y: 0.36 },
+  { t: 'primary',   w: 3.6, color: 0x60606a, y: 0.32 },
+  { t: 'secondary', w: 2.6, color: 0x686872, y: 0.28 },
+  { t: 'tertiary',  w: 1.8, color: 0x70707a, y: 0.24 },
 ];
 
 let _proj = null;
@@ -66,10 +67,12 @@ export async function buildOSMRoads(scene) {
     mesh.renderOrder = 1;
     scene.add(mesh);
 
-    // Center stripe for motorway + trunk only — readable at distance.
+    // White center lane line — Singapore standard. Solid for trunk (single
+    // carriageway feel), dashed for motorway (lane separator).
     if (tier.t === 'motorway' || tier.t === 'trunk') {
-      const stripeGeo = buildStripGeometry(ways, _proj, tier.w * 0.10);
-      const stripeMat = new THREE.MeshBasicMaterial({ color: 0xf2d96a, fog: true });
+      const dashed = (tier.t === 'motorway');
+      const stripeGeo = buildStripGeometry(ways, _proj, tier.w * 0.07, dashed);
+      const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true });
       const stripe = new THREE.Mesh(stripeGeo, stripeMat);
       stripe.position.y = tier.y + 0.005;
       stripe.renderOrder = 2;
@@ -96,14 +99,17 @@ export function projectLatLng(lat, lng) {
   return _proj(lat, lng);
 }
 
-function buildStripGeometry(ways, project, width) {
+function buildStripGeometry(ways, project, width, dashed = false) {
   const positions = [];
   const indices = [];
   let vi = 0;
   const halfW = width / 2;
+  const DASH_LEN = 4.0;            // world units of dash + gap cycle
+  const DASH_DUTY = 0.55;          // 55% painted, 45% gap
 
   for (const way of ways) {
     const pts = way.g.map(([lat, lng]) => project(lat, lng));
+    let s = 0;                     // arc-length along this way (for dashed)
     for (let i = 0; i < pts.length - 1; i++) {
       const [x1, z1] = pts[i];
       const [x2, z2] = pts[i + 1];
@@ -112,14 +118,39 @@ function buildStripGeometry(ways, project, width) {
       if (len < 0.05) continue;
       const nx = -dz / len * halfW;
       const nz =  dx / len * halfW;
-      positions.push(
-        x1 + nx, 0, z1 + nz,
-        x1 - nx, 0, z1 - nz,
-        x2 + nx, 0, z2 + nz,
-        x2 - nx, 0, z2 - nz,
-      );
-      indices.push(vi, vi + 1, vi + 2, vi + 1, vi + 3, vi + 2);
-      vi += 4;
+      // dashed mode: walk arc-length along dashes/gaps and emit only dash quads.
+      if (dashed) {
+        const startS = s;
+        let cursor = 0;                     // 0..len in this segment
+        while (cursor < len) {
+          const globalS = startS + cursor;
+          const phase = ((globalS % DASH_LEN) + DASH_LEN) % DASH_LEN;     // 0..DASH_LEN
+          const inDash = phase < DASH_LEN * DASH_DUTY;
+          const remainInState = inDash
+            ? (DASH_LEN * DASH_DUTY) - phase
+            : DASH_LEN - phase;
+          const advance = Math.max(0.05, Math.min(remainInState, len - cursor));
+          if (inDash) {
+            const t0 = cursor, t1 = cursor + advance;
+            const xa = x1 + dx * (t0 / len), za = z1 + dz * (t0 / len);
+            const xb = x1 + dx * (t1 / len), zb = z1 + dz * (t1 / len);
+            positions.push(xa + nx, 0, za + nz, xa - nx, 0, za - nz, xb + nx, 0, zb + nz, xb - nx, 0, zb - nz);
+            indices.push(vi, vi + 1, vi + 2, vi + 1, vi + 3, vi + 2);
+            vi += 4;
+          }
+          cursor += advance;
+        }
+        s += len;
+      } else {
+        positions.push(
+          x1 + nx, 0, z1 + nz,
+          x1 - nx, 0, z1 - nz,
+          x2 + nx, 0, z2 + nz,
+          x2 - nx, 0, z2 - nz,
+        );
+        indices.push(vi, vi + 1, vi + 2, vi + 1, vi + 3, vi + 2);
+        vi += 4;
+      }
     }
   }
 
