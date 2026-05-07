@@ -17,12 +17,14 @@ const LAT_TO_M = 111000;
 // Real Singapore-style asphalt: nearly black (0x222226 → 0x3a3a40 by tier) +
 // wider widths than reality.  Earlier 0x96969e light-grey blended into the
 // saturated green land under HDRI ambient + ACES tonemap.  Dark wins.
+// Y bumped to ~1.0 so flat car-cam angle still gives visible band (not razor-thin
+// slit at horizon). Stack offset prevents z-fight between tiers.
 const TIERS = [
-  { t: 'motorway',  w: 10.0, color: 0x222226, y: 0.40 },
-  { t: 'trunk',     w: 8.0,  color: 0x282830, y: 0.36 },
-  { t: 'primary',   w: 6.0,  color: 0x2e2e36, y: 0.32 },
-  { t: 'secondary', w: 4.0,  color: 0x34343a, y: 0.28 },
-  { t: 'tertiary',  w: 2.5,  color: 0x3a3a40, y: 0.24 },
+  { t: 'motorway',  w: 10.0, color: 0x222226, y: 1.00 },
+  { t: 'trunk',     w: 8.0,  color: 0x282830, y: 0.95 },
+  { t: 'primary',   w: 6.0,  color: 0x2e2e36, y: 0.90 },
+  { t: 'secondary', w: 4.0,  color: 0x34343a, y: 0.85 },
+  { t: 'tertiary',  w: 2.5,  color: 0x3a3a40, y: 0.80 },
 ];
 
 let _proj = null;
