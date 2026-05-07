@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PALETTE } from '../config.js';
+import { loadGroundTextures, setRepeatMeters } from './textures.js';
 
 // Build land/water from real OSM coastline polygons.
 //
@@ -30,13 +31,31 @@ export async function buildLand(scene, proj, bbox) {
   ocean.receiveShadow = true;
   scene.add(ocean);
 
+  // PBR ground texture set — shared by landPlate + island polygons. One tile
+  // covers TILE_M world meters; setRepeatMeters configures the shared texture
+  // repeat (1 / TILE_M) so every UV unit == 1 meter for both ShapeGeometry
+  // (UVs already in meters) and our manually-scaled PlaneGeometry below.
+  const TILE_M = 8;
+  const groundMaps = loadGroundTextures();
+  setRepeatMeters(groundMaps, 1 / TILE_M, 1 / TILE_M);
+
   // Layer 2 — land plate sized to the OSM bbox (covers central SG core where
   // the road network lives). OSM-polygon "islands" overlay on top below.
   const [bxmin, bzmax] = proj(bbox[0], bbox[1]);   // SW
   const [bxmax, bzmin] = proj(bbox[2], bbox[3]);   // NE
+  const plateW = bxmax - bxmin, plateH = bzmax - bzmin;
+  const plateGeo = new THREE.PlaneGeometry(plateW, plateH);
+  // Rescale UVs so they go 0..plateW / 0..plateH in METERS (matches ShapeGeometry).
+  const uv = plateGeo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) {
+    uv.setXY(i, uv.getX(i) * plateW, uv.getY(i) * plateH);
+  }
   const landPlate = new THREE.Mesh(
-    new THREE.PlaneGeometry(bxmax - bxmin, bzmax - bzmin),
-    new THREE.MeshStandardMaterial({ color: LAND_COLOR, roughness: 0.95 }),
+    plateGeo,
+    new THREE.MeshStandardMaterial({
+      color: LAND_COLOR, roughness: 1.0, metalness: 0.0,
+      ...groundMaps,
+    }),
   );
   landPlate.rotation.x = -Math.PI / 2;
   landPlate.position.set((bxmin + bxmax) / 2, -0.05, (bzmin + bzmax) / 2);
@@ -63,7 +82,8 @@ export async function buildLand(scene, proj, bbox) {
   const chains = stitchChains(ways);
 
   const landMat = new THREE.MeshStandardMaterial({
-    color: LAND_COLOR, roughness: 0.95, metalness: 0.0,
+    color: LAND_COLOR, roughness: 1.0, metalness: 0.0,
+    ...groundMaps,
   });
 
   let closedCount = 0, extendedCount = 0;
