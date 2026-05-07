@@ -110,7 +110,7 @@ async function main() {
   bindInput();
   bindStartOverlay();
   maybeBindTouchControls();
-  const stats = createStats();
+  const stats = createStats(renderer);
   const minimap = createMinimap(car, signs);
 
   let now = 0;
@@ -145,9 +145,14 @@ async function main() {
     const dt = Math.min(clock.getDelta(), 0.05);
     now += dt;
 
+    let physicsMs = 0;
     if (!isOpen()) {
       drive.tick(dt);                          // applies inputs + updateVehicle (physics path)
-      if (physicsReady) stepPhysics();         // integrate physics world
+      if (physicsReady) {
+        const t0 = performance.now();
+        stepPhysics();                         // integrate physics world
+        physicsMs = performance.now() - t0;
+      }
     }
     followCam(dt);
     animateSigns(signs, now, camera);
@@ -156,7 +161,7 @@ async function main() {
 
     renderer.render(scene, camera);
     minimap.tick();
-    stats.tick(dt);
+    stats.tick(dt, { physicsMs });
     requestAnimationFrame(frame);
   })();
 }
