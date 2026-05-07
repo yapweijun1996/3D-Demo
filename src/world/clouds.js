@@ -13,11 +13,11 @@ import * as THREE from 'three';
 // fade to near-invisible by alpha tweak — handled by daynight if extended,
 // for now they stay visible (subtle moonlit clouds).
 
-const COUNT = 18;
-const FIELD_HALF = 320;          // matches WORLD_HALF
-const ALTITUDE = 140;
-const DRIFT_SPEED_MIN = 0.5;     // world units per second
-const DRIFT_SPEED_MAX = 1.6;
+const COUNT = 24;
+const FIELD_HALF = 220;          // tighter than world bounds — clouds near camera
+const ALTITUDE = 55;             // visible from car-height camera (was 140 = above frustum)
+const DRIFT_SPEED_MIN = 0.6;     // world units per second
+const DRIFT_SPEED_MAX = 1.8;
 
 export function buildClouds(scene, tickers) {
   const tex = new THREE.CanvasTexture(makeCloudCanvas(256));
