@@ -128,18 +128,42 @@ function extractQuaternius(wrap, named) {
   ];
 }
 
+// Upgrade flat MeshStandardMaterial to MeshPhysicalMaterial with a clearcoat
+// gloss layer. Same base color/map preserved; the clearcoat adds the wet
+// showroom-shine that distinguishes a real car from a toy. envMapIntensity
+// boosted so the HDRI sky reflects sharply across the body.
+//
+// Wheels (separate meshes) get the same clearcoat treatment but a different
+// base — high metalness rim plus rough rubber mixes naturally because Kenney
+// wheels are a single mesh. Tradeoff: rims glint a bit too much. Acceptable.
 function applyPbrPaint(group) {
   group.traverse(o => {
-    if (o.isMesh && o.material) {
-      const mats = Array.isArray(o.material) ? o.material : [o.material];
-      for (const m of mats) {
-        if (m.isMeshStandardMaterial) {
-          m.metalness = 0.55;
-          m.roughness = 0.42;
-          m.envMapIntensity = 1.1;
-          m.needsUpdate = true;
-        }
+    if (!o.isMesh || !o.material) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    const swap = [];
+    for (const m of mats) {
+      if (!m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) {
+        swap.push(m);
+        continue;
       }
+      const phys = new THREE.MeshPhysicalMaterial({
+        color: m.color,
+        map: m.map,
+        normalMap: m.normalMap,
+        roughnessMap: m.roughnessMap,
+        metalnessMap: m.metalnessMap,
+        emissive: m.emissive,
+        emissiveMap: m.emissiveMap,
+        metalness: 0.85,
+        roughness: 0.35,
+        envMapIntensity: 1.6,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.05,
+      });
+      swap.push(phys);
+      m.dispose();
     }
+    o.material = Array.isArray(o.material) ? swap : swap[0];
+    o.castShadow = true;
   });
 }
