@@ -1,0 +1,56 @@
+name: Deploy to GitHub Pages
+
+# Live URL: https://yapweijun1996.github.io/3D-Demo/
+# Triggers on every push to main + manual dispatch.
+# Uses no build step — the project is pure static (importmap + ES modules).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Single concurrent deploy; cancel in-progress runs if a new commit lands.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Stage only what should ship — skip dev tooling, git internals, OS junk.
+      - name: Stage site
+        run: |
+          mkdir -p _site
+          rsync -av \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.claude' \
+            --exclude='_site' \
+            --exclude='node_modules' \
+            --exclude='.DS_Store' \
+            --exclude='scripts' \
+            ./ _site/
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

@@ -43,14 +43,14 @@
 ### ⭐ Phase A — Physics swap (Rapier RaycastVehicle)
 **Estimate**: 1.0–1.5 h · **Files**: +3 (physics/) · **LOC**: +300
 
-- [ ] A.1 Add `@dimforge/rapier3d-compat@0.14.0` import (esm.sh)
-- [ ] A.2 `physics/rapier-world.js` — `await RAPIER.init()`, `World({ gravity: 9.82 })`, fixed-step ticker
-- [ ] A.3 `physics/static-colliders.js` — register ground + cone cyl + sign box + landmark cyl
-- [ ] A.4 `physics/car-vehicle.js` — chassis rigid body + `DynamicRayCastVehicleController` + 4 wheels
-- [ ] A.5 `vehicle/drive.js` — adapt input → `vehicle.setEngineForce / setBrake / setSteering`
-- [ ] A.6 Sync wheel mesh transform from `vehicle.wheelChassisConnectionPoint(i)`
-- [ ] A.7 Verify: cone hit shows impulse, body rolls in turn, step ≤ 4ms
-- [ ] A.8 Fallback flag `CFG.physics.enabled` — false routes back to v0.2 kinematic
+- [x] A.1 Add `@dimforge/rapier3d-compat@0.14.0` import (esm.sh)
+- [x] A.2 `physics/rapier-world.js` — `await RAPIER.init()`, `World({ gravity: 9.82 })`, fixed-step ticker
+- [x] A.3 `physics/static-colliders.js` — register ground + cone cyl + sign box + landmark cyl
+- [x] A.4 `physics/car-vehicle.js` — chassis rigid body + `DynamicRayCastVehicleController` + 4 wheels
+- [x] A.5 `vehicle/drive.js` — adapt input → `vehicle.setEngineForce / setBrake / setSteering`
+- [x] A.6 Sync wheel mesh transform from `vehicle.wheelChassisConnectionPoint(i)`
+- [ ] A.7 Verify in real browser: cone hit shows impulse, body rolls in turn, step ≤ 4ms
+- [x] A.8 Fallback flag `CFG.physics.enabled` — false routes back to v0.2 kinematic
 
 ### Phase B — Asset pipeline + GLB instances
 **Estimate**: 1.0–1.5 h · **Files**: +2 (loaders/) + 5 GLB · **LOC**: +200

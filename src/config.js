@@ -102,4 +102,38 @@ export const CFG = {
   },
 
   perf: { pixelRatio: 2 },
+
+  physics: {
+    enabled: true,                            // false → fall back to kinematic drive (v0.2)
+    gravity: -9.82,
+    chassis: {
+      halfExtents: [0.95, 0.4, 1.7],          // collider half-size
+      mass: 900,
+      linearDamping: 0.4,
+      angularDamping: 0.7,
+      visualOffsetY: 0.85,                    // body center → visual group origin offset
+    },
+    wheel: {
+      suspensionRest: 0.30,
+      suspensionMaxTravel: 0.3,
+      suspensionStiffness: 30,
+      frictionSlip: 1.6,
+      sideFrictionStiffness: 1.0,
+      radius: 0.40,
+      anchors: [
+        [ 0.92, -0.2,  1.05, true ],          // FR
+        [-0.92, -0.2,  1.05, true ],          // FL
+        [ 0.92, -0.2, -1.05, false],          // RR
+        [-0.92, -0.2, -1.05, false],          // RL
+      ],
+    },
+    drive: {
+      engineForce: 2200,
+      brakeForce: 90,
+      reverseFactor: 0.5,
+      maxSteer: 0.5,
+      steerSpeed: 6,                          // rad/s lerp toward target
+      rollingBrake: 8,                        // tiny brake when no throttle (anti-coast-forever)
+    },
+  },
 };

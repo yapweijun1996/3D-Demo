@@ -17,11 +17,15 @@ import { buildCar } from './vehicle/car.js';
 import { createDrive } from './vehicle/drive.js';
 import { createFollowCam } from './vehicle/camera.js';
 
+import { initPhysics, stepPhysics } from './physics/rapier-world.js';
+import { buildStaticColliders } from './physics/static-colliders.js';
+import { buildCarVehicle } from './physics/car-vehicle.js';
+
 import { openModal, closeModal, isOpen } from './ui/modal.js';
 import { createStats } from './ui/stats.js';
 import { createMinimap } from './ui/minimap.js';
 
-function main() {
+async function main() {
   const canvas = document.getElementById('c');
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -37,14 +41,13 @@ function main() {
   scene.background = new THREE.Color(CFG.sky);
   scene.fog = new THREE.Fog(CFG.fog.color, CFG.fog.near, CFG.fog.far);
 
-  // PMREM env for realistic metal/glass reflections — sample a tiny dusk gradient scene
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
   scene.environment = pmrem.fromScene(makeEnvScene(), 0.04).texture;
 
   const camera = new THREE.PerspectiveCamera(CFG.camera.fov, innerWidth / innerHeight, CFG.camera.near, CFG.camera.far);
 
-  // ---- world build (order: distant → near so culling/lighting compose well) ----
+  // Build all visuals + register legacy colliders for landmarks/cones/signs.
   const tickers = [];
   buildSky(scene);
   buildLighting(scene);
@@ -57,9 +60,25 @@ function main() {
   buildCones(scene);
   const signs = buildSigns(scene);
 
-  // ---- vehicle ----
   const car = buildCar(scene);
-  const drive = createDrive(car);
+
+  // Physics — try to init Rapier; on failure, fall back to kinematic v0.2 drive.
+  let physicsReady = false, carPhys = null, RAPIER = null, world = null;
+  if (CFG.physics.enabled) {
+    try {
+      const ph = await initPhysics();
+      RAPIER = ph.RAPIER; world = ph.world;
+      buildStaticColliders(RAPIER, world);
+      carPhys = buildCarVehicle(RAPIER, world, CFG.car.spawn);
+      physicsReady = true;
+      console.log('[physics] Rapier ready');
+    } catch (err) {
+      console.warn('[physics] init failed, falling back to kinematic drive:', err);
+      CFG.physics.enabled = false;
+    }
+  }
+
+  const drive = createDrive(car, physicsReady ? { RAPIER, world, carPhys } : null);
   const followCam = createFollowCam(camera, car);
 
   bindInput();
@@ -97,7 +116,10 @@ function main() {
     const dt = Math.min(clock.getDelta(), 0.05);
     now += dt;
 
-    if (!isOpen()) drive.tick(dt);
+    if (!isOpen()) {
+      drive.tick(dt);                          // applies inputs + updateVehicle (physics path)
+      if (physicsReady) stepPhysics();         // integrate physics world
+    }
     followCam(dt);
     animateSigns(signs, now, camera);
     for (const tick of tickers) tick(now, dt);
@@ -110,8 +132,6 @@ function main() {
   })();
 }
 
-// Tiny throwaway scene used as PMREM source: half peach (sky), half olive (ground),
-// plus a bright sun spot. Cheap env reflection without external addon dependency.
 function makeEnvScene() {
   const s = new THREE.Scene();
   const sky = new THREE.Mesh(
