@@ -6,21 +6,21 @@ import { CFG } from '../config.js';
 // Dynamic FOV expands at high speed for sense-of-speed.
 export function createFollowCam(camera, car, getSpeed) {
   const C = CFG.camera;
-  // Stiff critical-damped spring (k=30 → fast follow, no overshoot, no lag at speed)
   const stiffness = 30;
   const damping = 2 * Math.sqrt(stiffness);
   const MAX_DRIFT = 14;
   const desired = new THREE.Vector3();
   const vel = new THREE.Vector3();
   const lookTarget = new THREE.Vector3();
-  const fwd = new THREE.Vector3();                       // car world-forward (pulled fresh each frame)
+  const fwd = new THREE.Vector3();
   const baseFov = C.fov;
   const fovMax = baseFov + 12;
+  const fovBoost = baseFov + 18;                         // extra 6deg punch when boosting
 
   camera.position.set(0, C.followHeight, C.followDistance + 5);
   camera.lookAt(0, 1, 0);
 
-  function tick(dt) {
+  function tick(dt, boostState) {
     const p = car.group.position;
     // Extract car's world-forward by transforming (0,0,1) through full quaternion.
     // This is correct even if car has body roll/pitch (Euler-Y extraction would be wrong).
@@ -66,13 +66,22 @@ export function createFollowCam(camera, car, getSpeed) {
     lookTarget.set(p.x + nfx * C.lookAhead, p.y + 1.0, p.z + nfz * C.lookAhead);
     camera.lookAt(lookTarget);
 
-    // dynamic FOV based on speed — sense-of-speed without doing anything physical
+    // dynamic FOV — speed scales toward fovMax, boost punches further to fovBoost
     if (getSpeed) {
       const speed = Math.abs(getSpeed());
       const sr = Math.min(1, speed / 28);
-      const targetFov = baseFov + (fovMax - baseFov) * sr;
+      const ceilingFov = boostState?.boosting ? fovBoost : fovMax;
+      const targetFov = baseFov + (ceilingFov - baseFov) * sr;
       camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 4);
       camera.updateProjectionMatrix();
+    }
+
+    // Boost camera shake — small high-freq jitter on top of spring position.
+    // Scaled by boost intensity (full shake at full burn) so fade-out is smooth.
+    if (boostState?.boosting) {
+      const amp = 0.10;
+      camera.position.x += (Math.random() - 0.5) * amp;
+      camera.position.y += (Math.random() - 0.5) * amp * 0.7;
     }
   }
   return tick;

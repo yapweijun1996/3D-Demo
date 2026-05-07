@@ -59,6 +59,22 @@ function bindTouchControls() {
   brake.textContent = 'BRAKE';
   root.appendChild(brake);
 
+  // ---- boost button (sits above brake) ----
+  const boost = document.createElement('div');
+  Object.assign(boost.style, {
+    position: 'absolute', right: 'max(28px, env(safe-area-inset-right))',
+    bottom: 'calc(max(20px, env(safe-area-inset-bottom)) + 124px)',
+    width: '88px', height: '88px', borderRadius: '50%',
+    background: 'rgba(255,184,92,0.25)', border: '2px solid rgba(255,184,92,0.55)',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.35)', pointerEvents: 'auto',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#ffe4b0', fontSize: '12px', fontWeight: '700',
+    letterSpacing: '0.10em', textShadow: '0 1px 2px #000',
+    touchAction: 'none', userSelect: 'none',
+  });
+  boost.textContent = 'BOOST';
+  root.appendChild(boost);
+
   document.body.appendChild(root);
 
   // ---- joystick logic ----
@@ -124,6 +140,26 @@ function bindTouchControls() {
   brake.addEventListener('pointerup', endBrake);
   brake.addEventListener('pointercancel', endBrake);
   brake.addEventListener('pointerleave', endBrake);
+
+  // ---- boost button logic ----
+  let boostActive = null;
+  boost.addEventListener('pointerdown', (e) => {
+    boostActive = e.pointerId;
+    boost.setPointerCapture(boostActive);
+    keys.boost = true;
+    boost.style.background = 'rgba(255,184,92,0.55)';
+    boost.style.boxShadow = '0 0 28px rgba(255,184,92,0.65), 0 4px 16px rgba(0,0,0,0.35)';
+  });
+  function endBoost(e) {
+    if (e.pointerId !== boostActive) return;
+    boostActive = null;
+    keys.boost = false;
+    boost.style.background = 'rgba(255,184,92,0.25)';
+    boost.style.boxShadow = '0 4px 16px rgba(0,0,0,0.35)';
+  }
+  boost.addEventListener('pointerup', endBoost);
+  boost.addEventListener('pointercancel', endBoost);
+  boost.addEventListener('pointerleave', endBoost);
 
   return { root };
 }

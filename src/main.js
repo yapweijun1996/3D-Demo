@@ -21,6 +21,7 @@ import { buildCar } from './vehicle/car.js';
 import { buildCarGLB } from './vehicle/car-glb.js';
 import { createDrive } from './vehicle/drive.js';
 import { createFollowCam } from './vehicle/camera.js';
+import { createExhaust } from './vehicle/exhaust.js';
 
 import { initPhysics, stepPhysics } from './physics/rapier-world.js';
 import { buildStaticColliders } from './physics/static-colliders.js';
@@ -143,6 +144,7 @@ async function main() {
     const v = carPhys.body.linvel();
     return Math.sqrt(v.x * v.x + v.z * v.z);
   });
+  const exhaust = createExhaust(car);
 
   bindInput();
   bindStartOverlay();
@@ -196,7 +198,8 @@ async function main() {
       }
       drive.sync();                            // visual sync from POST-step body state
     }
-    followCam(dt);                             // camera reads fresh car.group transform
+    followCam(dt, drive.state);                // camera reads fresh car.group transform + boost shake
+    exhaust.tick(drive.state);
     animateSigns(signs, now, camera);
     for (const tick of tickers) tick(now, dt);
     checkSignTriggers();
