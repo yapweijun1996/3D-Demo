@@ -6,7 +6,7 @@ import { buildSky } from './world/sky.js';
 import { buildLighting } from './world/lighting.js';
 import { buildPlayground } from './world/playground.js';
 import { buildLand } from './world/land.js';
-import { bindDayNight } from './world/daynight.js';
+import { bindDayNight } from './world/daynight-v2.js';
 import { buildRoads } from './world/roads.js';
 import { buildOSMRoads, projectLatLng } from './world/roads-osm.js';
 import { buildCoastline } from './world/coastline.js';
