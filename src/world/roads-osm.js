@@ -171,7 +171,7 @@ export async function buildOSMRoads(scene) {
   // Zebra crossings at intersections of motorway/trunk/primary ways.
   const zebra = buildZebraCrossings(scene, data.ways, _proj, ['motorway', 'trunk', 'primary']);
   console.log(`[osm] ${totalWays} ways, tiers:`, counts, `+ ${zebra.count} zebra crossings`);
-  return { proj: _proj, bbox: data.bbox, minimapSegs };
+  return { proj: _proj, bbox: data.bbox, minimapSegs, ways: data.ways };
 }
 
 export function projectLatLng(lat, lng) {
