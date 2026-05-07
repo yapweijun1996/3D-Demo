@@ -16,6 +16,7 @@ import { buildCones } from './world/cones.js';
 import { buildSigns, animateSigns } from './world/signs.js';
 
 import { buildCar } from './vehicle/car.js';
+import { buildCarGLB } from './vehicle/car-glb.js';
 import { createDrive } from './vehicle/drive.js';
 import { createFollowCam } from './vehicle/camera.js';
 
@@ -89,7 +90,16 @@ async function main() {
   buildCones(scene, assets);
   const signs = buildSigns(scene, proj);
 
-  const car = buildCar(scene);
+  let car;
+  if (CFG.car.useGLB) {
+    car = await buildCarGLB(scene);
+    if (!car) {
+      console.warn('[car] GLB load failed, using procedural fallback');
+      car = buildCar(scene);
+    }
+  } else {
+    car = buildCar(scene);
+  }
 
   // Physics — try to init Rapier; on failure, fall back to kinematic v0.2 drive.
   let physicsReady = false, carPhys = null, RAPIER = null, world = null;
@@ -217,4 +227,8 @@ function bindStartOverlay() {
   });
 }
 
-main();
+main().catch(err => {
+  console.error('[main] FATAL:', err);
+  document.body.insertAdjacentHTML('beforeend',
+    `<pre style="position:fixed;top:50px;left:50px;background:#fff;color:#c00;padding:20px;z-index:999;max-width:80%;font:12px monospace;white-space:pre-wrap">${err.message}\n\n${err.stack}</pre>`);
+});

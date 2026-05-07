@@ -79,11 +79,12 @@ function syncVisual(carVisual, carPhys) {
   carVisual.group.position.set(t.x, t.y - CFG.physics.chassis.visualOffsetY, t.z);
   carVisual.group.quaternion.set(r.x, r.y, r.z, r.w);
 
-  for (let i = 0; i < 4; i++) {
+  // Sync visible wheels (skipped if car has none — e.g. GLB car with baked wheels)
+  for (let i = 0; i < carVisual.wheels.length; i++) {
+    const w = carVisual.wheels[i];
+    if (!w) continue;
     const wcp = vehicle.wheelChassisConnectionPointCs(i);
     const susp = vehicle.wheelSuspensionLength(i);
-    const w = carVisual.wheels[i];
-    // Wheel position in chassis-local space + the chassis center we offset against
     w.group.position.set(wcp.x, wcp.y - susp + CFG.physics.chassis.visualOffsetY, wcp.z);
     const steerY = vehicle.wheelSteering(i);
     const rot = vehicle.wheelRotation(i);

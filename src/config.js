@@ -12,8 +12,9 @@ export const CFG = {
   },
 
   car: {
-    bodyColor:   0xd33340,                    // Singapore red
-    accentColor: 0xfbf3e2,                    // off-white
+    useGLB: true,                             // R2: load PBR ToyCar.glb (5.8MB) instead of procedural
+    bodyColor:   0xd33340,                    // Singapore red (procedural fallback only)
+    accentColor: 0xfbf3e2,
     rimColor:    0xc9c9d1,
     spawn: [80, 0, 130],                      // near real Singapore city core (lat 1.290, lng 103.852 area)
     accel: 26,
