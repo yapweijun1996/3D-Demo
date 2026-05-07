@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { loadRoadTextures, loadSidewalkTextures, setRepeatMeters } from './textures.js';
 import { emitParallelStrip } from './road-emitter.js';
+import { buildZebraCrossings } from './road-markings.js';
 
 // Render Singapore central road network from OSM data.
 // Source: assets/data/sg-roads.json (Overpass: 5 highway tiers,
@@ -136,6 +137,26 @@ export async function buildOSMRoads(scene) {
       scene.add(stripe);
     }
 
+    // Yellow edge lines — Singapore standard for motorway/trunk/primary.
+    // Inset 0.15m from the road edge so the line sits visibly inside the
+    // asphalt rather than spilling onto sidewalk/grass.
+    if (tier.t === 'motorway' || tier.t === 'trunk' || tier.t === 'primary') {
+      const edgeOffset = tier.w / 2 - 0.15;
+      for (const side of [-1, 1]) {
+        const edgeGeo = emitParallelStrip(ways, _proj, {
+          widthMeters: 0.20,
+          offsetMeters: side * edgeOffset,
+        });
+        const edgeMat = new THREE.MeshBasicMaterial({
+          color: 0xffd24a, fog: true, side: THREE.DoubleSide,
+        });
+        const edge = new THREE.Mesh(edgeGeo, edgeMat);
+        edge.position.y = tier.y + 0.006;     // slightly above white stripe
+        edge.renderOrder = 2;
+        scene.add(edge);
+      }
+    }
+
     // minimap segs — only major tiers (motorway/trunk/primary) to keep it readable
     if (tier.t === 'motorway' || tier.t === 'trunk' || tier.t === 'primary') {
       for (const w of ways) {
@@ -147,7 +168,9 @@ export async function buildOSMRoads(scene) {
     }
   }
 
-  console.log(`[osm] ${totalWays} ways, tiers:`, counts);
+  // Zebra crossings at intersections of motorway/trunk/primary ways.
+  const zebra = buildZebraCrossings(scene, data.ways, _proj, ['motorway', 'trunk', 'primary']);
+  console.log(`[osm] ${totalWays} ways, tiers:`, counts, `+ ${zebra.count} zebra crossings`);
   return { proj: _proj, bbox: data.bbox, minimapSegs };
 }
 
