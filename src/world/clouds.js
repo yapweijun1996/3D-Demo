@@ -13,10 +13,10 @@ import * as THREE from 'three';
 // fade to near-invisible by alpha tweak — handled by daynight if extended,
 // for now they stay visible (subtle moonlit clouds).
 
-const COUNT = 24;
-const FIELD_HALF = 220;          // tighter than world bounds — clouds near camera
-const ALTITUDE = 55;             // visible from car-height camera (was 140 = above frustum)
-const DRIFT_SPEED_MIN = 0.6;     // world units per second
+const COUNT = 30;
+const FIELD_HALF = 280;
+const ALTITUDE = 80;
+const DRIFT_SPEED_MIN = 0.6;
 const DRIFT_SPEED_MAX = 1.8;
 
 export function buildClouds(scene, tickers) {
@@ -25,8 +25,9 @@ export function buildClouds(scene, tickers) {
   tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
 
-  const geo = new THREE.PlaneGeometry(80, 50);
-  geo.rotateX(Math.PI / 2);                      // face down (lay flat)
+  const geo = new THREE.PlaneGeometry(120, 70);
+  // No rotation — keep planes vertical so they're visible looking horizontally.
+  // Each instance gets random Y rotation around its center for variety.
   const mat = new THREE.MeshBasicMaterial({
     map: tex, transparent: true, opacity: 0.95,
     depthWrite: false, fog: false, side: THREE.DoubleSide,
@@ -51,7 +52,7 @@ export function buildClouds(scene, tickers) {
     positions[i * 3 + 2] = s;
     speeds[i] = DRIFT_SPEED_MIN + Math.random() * (DRIFT_SPEED_MAX - DRIFT_SPEED_MIN);
     dummy.position.set(x, ALTITUDE, z);
-    dummy.scale.set(s, 1, s);
+    dummy.scale.set(s, s, 1);
     dummy.rotation.y = Math.random() * Math.PI;
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
@@ -66,7 +67,7 @@ export function buildClouds(scene, tickers) {
       if (x > FIELD_HALF + 40) x = -FIELD_HALF - 40;
       positions[i * 3 + 0] = x;
       dummy.position.set(x, ALTITUDE, z);
-      dummy.scale.set(s, 1, s);
+      dummy.scale.set(s, s, 1);
       dummy.rotation.y = i * 0.7;
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
