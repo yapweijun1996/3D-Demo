@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { loadRoadTextures, loadSidewalkTextures, loadPaintNoiseTexture, setRepeatMeters } from './textures.js';
 import { emitParallelStrip } from './road-emitter.js';
 import { buildZebraCrossings } from './road-markings.js';
+import { TIERS } from './road-tiers.js';
 
 // Render Singapore central road network from OSM data.
 // Source: assets/data/sg-roads.json (Overpass: 5 highway tiers,
@@ -14,17 +15,8 @@ import { buildZebraCrossings } from './road-markings.js';
 const WORLD_HALF = 320;
 const LAT_TO_M = 111000;
 
-// Tier visual table — width in WORLD units, color, y-stack height (avoid z-fight).
-// Realistic-ish widths (3-5x exaggerated from real meter scale, since our
-// worldScale projects the bbox so 1 unit ≈ 22m). Y stack 0.04 between tiers
-// avoids z-fight at intersections; renderOrder enforces motorway-on-top.
-const TIERS = [
-  { t: 'motorway',  w: 5.0, color: 0x222226, y: 0.20 },
-  { t: 'trunk',     w: 4.0, color: 0x282830, y: 0.16 },
-  { t: 'primary',   w: 3.0, color: 0x2e2e36, y: 0.12 },
-  { t: 'secondary', w: 2.2, color: 0x34343a, y: 0.08 },
-  { t: 'tertiary',  w: 1.5, color: 0x3a3a40, y: 0.04 },
-];
+// Tier visual table is the SSOT in road-tiers.js — every subsystem (roads,
+// stripes, sidewalks, traffic, future awnings) reads from there.
 
 let _proj = null;
 

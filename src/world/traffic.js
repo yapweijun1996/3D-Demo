@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { surfaceY } from './road-tiers.js';
 
 // NPC traffic — 40 cars driving along OSM primary/trunk/motorway ways.
 // Pure visuals (no Rapier). Each car has a CatmullRomCurve3 path + progress
@@ -15,10 +16,6 @@ const SPAWN_RADIUS  = 300;
 const LANE_OFFSET   = 1.6;        // metres car offsets from road centerline (SG drives left)
 const NEAR_HANDOVER_R2 = 35 * 35; // prefer a continuation path whose endpoint is within 35 m
 
-// Mirrors TIERS y values from roads-osm.js. Used to drop NPC cars at the
-// correct road surface elevation so a sedan on a motorway (y=0.20) doesn't
-// sit visually below a sedan on a primary (y=0.12) and vice versa.
-const TIER_Y = { motorway: 0.20, trunk: 0.16, primary: 0.12, secondary: 0.08, tertiary: 0.04 };
 // Body-bottom offset above road surface (sedan bbox height/2 - axle drop).
 const RIDE_HEIGHT = 0.10;
 
@@ -36,7 +33,7 @@ export function buildTraffic(scene, ways, project, opts = {}) {
     let len = 0;
     for (let i = 0; i < pts.length - 1; i++) len += pts[i].distanceTo(pts[i + 1]);
     if (len < 120) continue;
-    candidates.push({ pts, length: len, tier: w.t, surfaceY: TIER_Y[w.t] ?? 0.12 });
+    candidates.push({ pts, length: len, tier: w.t, surfaceY: surfaceY(w.t) });
   }
   if (candidates.length === 0) {
     console.warn('[traffic] no candidate ways — skipping');
