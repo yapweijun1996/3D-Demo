@@ -125,105 +125,178 @@ function buildShophouses(scene, region, district, proj, ways) {
   return placements.length;
 }
 
-// T10: Marina Bay CBD glass towers — MeshPhysicalMaterial with low roughness
-// + clearcoat for the wet showroom glass look, blue-silver tint, emissive
-// window-grid texture that ramps with day/night. Real-landmark height set:
-// Guoco 290m / OUB 280m / UOB 280m / MBFC 245m / Republic 280m / etc.
-//
-// Each tower = 2 meshes (body + window-grid emissive overlay). 8 towers in
-// district = 16 meshes — within drawcall budget.
+// T13: Marina Bay CBD towers as 5-box composites with per-tower color
+// palette + sophisticated window canvas. Each tower = 1 merged mesh + 1
+// window overlay = 2 drawcalls per tower. Composition (bottom to top):
+//   - podium (4 floors, 25% wider — different material slot)
+//   - main shaft (primary mass)
+//   - setback at 70% height (85% footprint, asymmetric inset)
+//   - mechanical penthouse (40% footprint, 8m tall, matte gray)
+//   - antenna cylinder (thin, top)
+// Color schemes (towerIdx % 4):
+//   0 silver glass / 1 bronze / 2 dark blue / 3 white concrete + glass
 function buildTowers(scene, region, district) {
-  const heights = [290, 280, 280, 245, 240, 235, 200, 180];   // anchored to real landmarks
+  const heights = [290, 280, 280, 245, 240, 235, 200, 180];
   const N = heights.length;
 
   const winTex = makeTowerWindowTexture();
 
-  // Tower body — glass with HDRI reflection.
-  const bodyMat = new THREE.MeshPhysicalMaterial({
-    color: 0x6890b8,
-    roughness: 0.12,
-    metalness: 0.85,
-    envMapIntensity: 2.0,
-    clearcoat: 0.7,
-    clearcoatRoughness: 0.08,
-  });
+  // 4 body color schemes — material instances cloned per tower so
+  // per-tower color/metalness varies without breaking PBR.
+  const schemes = [
+    { color: 0xd8dde3, roughness: 0.10, metalness: 0.95, clearcoat: 0.8 },   // silver glass
+    { color: 0x6e4a2a, roughness: 0.25, metalness: 1.00, clearcoat: 0.4 },   // bronze
+    { color: 0x0e1a2e, roughness: 0.18, metalness: 0.85, clearcoat: 0.7 },   // dark blue
+    { color: 0xc4c2b8, roughness: 0.55, metalness: 0.05, clearcoat: 0.0 },   // white concrete
+  ];
+  const podiumColor = 0x6a5a4a;       // brick / sandstone podium for all
+  const penthouseColor = 0x40444a;    // matte mechanical
+  const antennaColor = 0x202020;
 
-  // Window grid overlay — emissive only, transparent glass behind windows
-  // shows the body color through the cells. emissiveIntensity ramps via
-  // dayNight phase from the main loop (caller can patch onto bodyMat too,
-  // but the grid mesh keeps animation isolated from base color drift).
   const windowsMat = new THREE.MeshStandardMaterial({
     color: 0x000000,
     map: winTex,
-    emissive: 0xffe4a0,
+    emissive: 0xffd9a0,
     emissiveMap: winTex,
     emissiveIntensity: 0.05,
-    transparent: false,
   });
 
-  // Random but deterministic placement inside district bbox, axis-aligned.
   const cx = (region.xMin + region.xMax) / 2;
   const cz = (region.zMin + region.zMax) / 2;
   const rand = mulberry32(0xC0FFEE);
 
   for (let i = 0; i < N; i++) {
     const h = heights[i];
-    const w = 26 + rand() * 18;       // 26-44m square footprint
+    const w = 26 + rand() * 18;
     const d = 26 + rand() * 18;
-    // Spiral around district center so towers don't overlap.
     const a = (i / N) * Math.PI * 2 + rand() * 0.4;
     const r = 18 + (i / N) * (Math.min(region.width, region.depth) * 0.35);
     const x = cx + Math.cos(a) * r;
     const z = cz + Math.sin(a) * r;
 
-    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bodyMat);
-    body.position.set(x, h / 2, z);
-    body.castShadow = true;
-    body.receiveShadow = true;
-    scene.add(body);
+    const scheme = schemes[i % schemes.length];
+    const bodyMat = new THREE.MeshPhysicalMaterial({
+      color: scheme.color,
+      roughness: scheme.roughness,
+      metalness: scheme.metalness,
+      envMapIntensity: 2.0,
+      clearcoat: scheme.clearcoat,
+      clearcoatRoughness: 0.08,
+    });
+    const podiumMat = new THREE.MeshStandardMaterial({
+      color: podiumColor, roughness: 0.85, metalness: 0.0,
+    });
+    const penthouseMat = new THREE.MeshStandardMaterial({
+      color: penthouseColor, roughness: 0.7, metalness: 0.3,
+    });
+    const antennaMat = new THREE.MeshStandardMaterial({
+      color: antennaColor, roughness: 0.5, metalness: 0.6,
+    });
 
-    // Windows mesh — slightly larger box (window grid sits proud of glass face
-    // by 0.05m so it reads from any angle without z-fighting).
+    // 5 sub-meshes per tower (kept as separate children for material
+    // variety; merging would require multi-material groups).
+    const podiumH = 16;
+    const setbackH = 12;
+    const penthouseH = 8;
+    const shaftH = h - podiumH - setbackH - penthouseH;
+
+    // Podium
+    const podium = new THREE.Mesh(new THREE.BoxGeometry(w * 1.25, podiumH, d * 1.25), podiumMat);
+    podium.position.set(x, podiumH / 2, z);
+    podium.castShadow = true; podium.receiveShadow = true;
+    scene.add(podium);
+
+    // Main shaft — wraps with windows mesh.
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(w, shaftH, d), bodyMat);
+    shaft.position.set(x, podiumH + shaftH / 2, z);
+    shaft.castShadow = true; shaft.receiveShadow = true;
+    scene.add(shaft);
+
     const win = new THREE.Mesh(
-      new THREE.BoxGeometry(w + 0.10, h, d + 0.10),
+      new THREE.BoxGeometry(w + 0.10, shaftH, d + 0.10),
       windowsMat
     );
-    win.position.set(x, h / 2, z);
+    win.position.set(x, podiumH + shaftH / 2, z);
     scene.add(win);
+
+    // Setback (asymmetric inset for silhouette variety)
+    const offsetX = (rand() - 0.5) * w * 0.2;
+    const offsetZ = (rand() - 0.5) * d * 0.2;
+    const setback = new THREE.Mesh(new THREE.BoxGeometry(w * 0.85, setbackH, d * 0.85), bodyMat);
+    setback.position.set(x + offsetX, podiumH + shaftH + setbackH / 2, z + offsetZ);
+    setback.castShadow = true;
+    scene.add(setback);
+
+    // Penthouse
+    const penthouse = new THREE.Mesh(new THREE.BoxGeometry(w * 0.4, penthouseH, d * 0.4), penthouseMat);
+    penthouse.position.set(x + offsetX, podiumH + shaftH + setbackH + penthouseH / 2, z + offsetZ);
+    penthouse.castShadow = true;
+    scene.add(penthouse);
+
+    // Antenna
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 14, 6), antennaMat);
+    antenna.position.set(x + offsetX, h + 7, z + offsetZ);
+    scene.add(antenna);
   }
 
-  // Hand the windows material back via global so main.js can drive emissive
-  // with dayNight (same pattern as HDB body).
   if (!scene.userData.cbdWindowsMat) scene.userData.cbdWindowsMat = windowsMat;
 
   return N;
 }
 
-// Tower window texture — single canvas tiled across the body. Bright cells
-// random-sampled; dark cells stay opaque so emissiveMap turns ON only the
-// "lit window" pixels at night.
+// Tower window texture — vertical fenestration bands + spandrel rows +
+// noise-clustered night occupancy. Reads as ribbon windows with rhythm,
+// not uniform grid.
 function makeTowerWindowTexture() {
-  const cellW = 24, cellH = 28;
-  const cols = 12, rows = 30;
+  const cellW = 22, cellH = 26;
+  const cols = 18, rows = 30;
   const cnv = document.createElement('canvas');
   cnv.width = cols * cellW; cnv.height = rows * cellH;
   const ctx = cnv.getContext('2d');
-  ctx.fillStyle = '#000';                 // black background = no emission where unlit
+  ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, cnv.width, cnv.height);
-  ctx.fillStyle = '#ffe4a0';
-  for (let r = 0; r < rows; r++) {
+
+  // Vertical band pattern: every 5 cols rotate through window-window-window-spandrel-spandrel
+  // → ribbons of glass with vertical concrete piers between.
+  const isWindowBand = c => (c % 5) < 3;
+
+  // Value-noise night occupancy: cluster lit floors not uniform random.
+  // Cheap 2D hash with low-freq + mid-freq mix produces clumps.
+  function noise(x, y) {
+    const a = Math.sin(x * 0.43 + y * 0.21) * 0.5 + 0.5;
+    const b = Math.sin(x * 1.12 + y * 0.93 + 17) * 0.5 + 0.5;
+    return a * 0.6 + b * 0.4;
+  }
+
+  for (let row = 0; row < rows; row++) {
+    // Spandrel band: every floor draw 30% dark band at the bottom of the cell.
     for (let c = 0; c < cols; c++) {
-      // Apartment occupancy: 65% lit at full night
-      if (Math.random() < 0.65) {
-        const x = c * cellW + 4, y = r * cellH + 4;
-        ctx.fillRect(x, y, cellW - 8, cellH - 10);
+      ctx.fillStyle = '#0a0a14';
+      ctx.fillRect(c * cellW, row * cellH + cellH * 0.7, cellW, cellH * 0.3);
+    }
+    for (let c = 0; c < cols; c++) {
+      if (!isWindowBand(c)) {
+        // Pier (vertical column between window bands): solid mid-dark
+        ctx.fillStyle = '#1c1c24';
+        ctx.fillRect(c * cellW, row * cellH, cellW, cellH * 0.7);
+        continue;
+      }
+      // Window cell — lit at night based on noise threshold
+      const lit = noise(c, row) > 0.5;
+      if (lit) {
+        // Warm tungsten with hue variance per window
+        const hue = 35 + Math.random() * 18;       // 35-53 (warm yellow→orange)
+        const sat = 70 + Math.random() * 20;
+        const lum = 55 + Math.random() * 15;
+        ctx.fillStyle = `hsl(${hue}, ${sat}%, ${lum}%)`;
+        ctx.fillRect(c * cellW + 2, row * cellH + 2, cellW - 4, cellH * 0.7 - 3);
       }
     }
   }
   const tex = new THREE.CanvasTexture(cnv);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2, 4);
+  tex.repeat.set(2, 3);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   return tex;
