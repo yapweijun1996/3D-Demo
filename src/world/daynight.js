@@ -16,17 +16,28 @@ const LERP_DURATION = 3.0;          // seconds
 // haze, letting the eye lock on the ~200m around the car. Hemi ground
 // darkened so it doesn't repeat the land color (was 0x4a5440 ≈ land —
 // killed depth perception).
+// Tropical Singapore daylight — diffused, hazy, never deep blue. Real noon
+// sun ≈ 100k lux, but humidity/cloud reduce direct component to ~60-75k while
+// raising diffuse to ~25-35k. Three.js post-r155 uses physical units so
+// directional intensity reads as scaled lux. Hemi lifts so diffuse:direct
+// ratio matches; ambient is removed entirely (it stacks on hemi, killing
+// contrast). Tonemap exposure pulled to 0.6 so the brighter physical lights
+// don't blow out paint and sky.
+//
+// FogExp2 (set in main.js / config.js) replaces linear Fog so atmospheric
+// extinction follows real Mie scattering — slightly warmer milky tropical
+// horizon color.
 const DAY = {
-  fog: { color: PALETTE.fog,      near: 60, far: 300 },
-  sun: { color: 0xfff2d6, intensity: 1.2 },
-  hemi: { sky: PALETTE.sky, ground: 0x252520, intensity: 0.40 },
-  amb: { color: 0x9bb4cf, intensity: 0.15 },
+  fog: { color: 0xb8c8d4, near: 60, far: 300 },     // near/far ignored if FogExp2
+  sun: { color: 0xfff4dc, intensity: 2.5 },
+  hemi: { sky: PALETTE.sky, ground: 0x3a3830, intensity: 1.8 },
+  amb: { color: 0x000000, intensity: 0.0 },         // disabled — hemi covers fill
 };
 const NIGHT = {
   fog: { color: PALETTE.fogNight, near: 30, far: 180 },
-  sun: { color: 0x9bb4d6, intensity: 0.18 },
-  hemi: { sky: 0x18243a, ground: 0x0c1018, intensity: 0.25 },
-  amb: { color: 0x404a72, intensity: 0.30 },
+  sun: { color: 0x9bb4d6, intensity: 0.4 },
+  hemi: { sky: 0x18243a, ground: 0x0c1018, intensity: 0.45 },
+  amb: { color: 0x000000, intensity: 0.0 },
 };
 
 export function bindDayNight(scene, renderer, pmrem, lights, tickers) {
@@ -65,8 +76,11 @@ export function bindDayNight(scene, renderer, pmrem, lights, tickers) {
   function apply(p) {
     if (scene.fog) {
       scene.fog.color.setHex(p.fog.color);
-      scene.fog.near = p.fog.near;
-      scene.fog.far = p.fog.far;
+      // Linear Fog has near/far; FogExp2 has only density. Only apply what exists.
+      if ('near' in scene.fog) {
+        scene.fog.near = p.fog.near;
+        scene.fog.far = p.fog.far;
+      }
     }
     if (lights?.sun) {
       lights.sun.color.setHex(p.sun.color);
@@ -95,8 +109,10 @@ export function bindDayNight(scene, renderer, pmrem, lights, tickers) {
     const a = lerpFrom, b = lerpTo;
     if (scene.fog) {
       scene.fog.color.setHex(a.fog.color).lerp(new THREE.Color(b.fog.color), e);
-      scene.fog.near = a.fog.near + (b.fog.near - a.fog.near) * e;
-      scene.fog.far = a.fog.far + (b.fog.far - a.fog.far) * e;
+      if ('near' in scene.fog) {
+        scene.fog.near = a.fog.near + (b.fog.near - a.fog.near) * e;
+        scene.fog.far = a.fog.far + (b.fog.far - a.fog.far) * e;
+      }
     }
     if (lights?.sun) {
       lights.sun.color.setHex(a.sun.color).lerp(new THREE.Color(b.sun.color), e);

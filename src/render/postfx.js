@@ -17,9 +17,9 @@ export function buildPostFX(renderer, scene, camera) {
 
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(innerWidth, innerHeight),
-    0.45,     // strength — gentle glow, not anime-bright
-    0.55,     // radius
-    0.82,     // threshold — only emissive>threshold blooms
+    0.25,     // strength (T12: 0.45 → 0.25 — paint shouldn't glow)
+    0.6,      // radius
+    1.0,      // threshold (T12: 0.82 → 1.0 — in linear HDR, only sun + headlights pass; paint at ~0.7 albedo doesn't)
   );
   composer.addPass(bloom);
 

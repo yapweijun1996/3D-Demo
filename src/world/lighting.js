@@ -12,14 +12,16 @@ export function buildLighting(scene) {
   dl.position.set(...sun.pos);
   dl.castShadow = true;
   const s = sun.shadow;
-  dl.shadow.mapSize.set(s.mapSize, s.mapSize);
+  // T12: 1024 → 2048 + radius 8 for VSM blur. Reads diffused, not knife-edge.
+  dl.shadow.mapSize.set(2048, 2048);
+  dl.shadow.radius = 8;
   dl.shadow.camera.left   = -s.frustum;
   dl.shadow.camera.right  =  s.frustum;
   dl.shadow.camera.top    =  s.frustum;
   dl.shadow.camera.bottom = -s.frustum;
   dl.shadow.camera.near = s.near;
   dl.shadow.camera.far  = s.far;
-  dl.shadow.bias = s.bias;
+  dl.shadow.bias = -0.0005;
   scene.add(dl); scene.add(dl.target);
 
   return { hemi: hemiL, sun: dl, ambient: ambL };

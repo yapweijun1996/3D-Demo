@@ -49,15 +49,21 @@ async function main() {
   renderer.setPixelRatio(Math.min(devicePixelRatio, CFG.perf.pixelRatio));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = CFG.perf.shadowsEnabled;
-  // PCF (not soft) — much cheaper, still acceptable quality at 1024 map
-  renderer.shadowMap.type = THREE.PCFShadowMap;
+  // VSM gives soft variance shadows that match a diffused tropical sun;
+  // PCF would render hard knife-edge shadows that read as "video-game" sun.
+  renderer.shadowMap.type = THREE.VSMShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  // Pulled down from 1.0 because directional/hemi lights are now in
+  // physical-units range (DirectionalLight intensity 2.5). Without this
+  // the scene blows out and paint glows.
+  renderer.toneMappingExposure = 0.6;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(CFG.sky);
-  scene.fog = new THREE.Fog(CFG.fog.color, CFG.fog.near, CFG.fog.far);
+  // FogExp2 with density tuned so ~50% extinction at 150m, full milky at
+  // ~400m — matches Mie scattering better than the previous linear fog.
+  scene.fog = new THREE.FogExp2(0xb8c8d4, 0.0045);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
