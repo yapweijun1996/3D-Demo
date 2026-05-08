@@ -285,6 +285,14 @@ async function main() {
     if (scene.userData.flyerCapsuleMat) {
       scene.userData.flyerCapsuleMat.emissiveIntensity = 0.25 + 1.6 * dayNight.phase;
     }
+    // Supertree LED bands — magenta at night, almost off in day.
+    if (scene.userData.supertreeLedMat) {
+      scene.userData.supertreeLedMat.emissiveIntensity = 0.15 + 2.2 * dayNight.phase;
+    }
+    // MBS infinity pool glows turquoise at night.
+    if (scene.userData.mbsPoolMat) {
+      scene.userData.mbsPoolMat.emissiveIntensity = 0.15 + 1.3 * dayNight.phase;
+    }
     if (lamps) lamps.tick(now, dayNight);
     if (traffic) traffic.tick(now, dt);
     if (scene.userData.palmWindUniforms) scene.userData.palmWindUniforms.uTime.value = now;

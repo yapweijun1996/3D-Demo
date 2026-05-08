@@ -57,6 +57,12 @@ export async function buildSGLandmarks(scene, proj) {
     if (p.name === 'flyer' && g.userData.capsuleMat) {
       scene.userData.flyerCapsuleMat = g.userData.capsuleMat;
     }
+    if (p.name === 'supertrees' && g.userData.ledMat) {
+      scene.userData.supertreeLedMat = g.userData.ledMat;
+    }
+    if (p.name === 'mbs' && g.userData.poolMat) {
+      scene.userData.mbsPoolMat = g.userData.poolMat;
+    }
   }
   console.log(`[landmarks-sg] placed ${groups.length} iconic landmarks`);
   return groups;
@@ -106,6 +112,24 @@ function createMBS() {
   const cant = new THREE.Mesh(new THREE.BoxGeometry(67, 6, 30), skyMat);
   cant.position.set(170 + 33, 200, 6);
   g.add(cant);
+  // Infinity pool on top of skypark — recessed thin water plate. Color is
+  // tropical pool blue; emissive ramps at night so it reads as the iconic
+  // illuminated rooftop pool.
+  const poolMat = new THREE.MeshPhysicalMaterial({
+    color: 0x4ec0d8, roughness: 0.05, metalness: 0.0,
+    transmission: 0.5, ior: 1.33,
+    emissive: 0x2070a0, emissiveIntensity: 0.15,
+  });
+  const pool = new THREE.Mesh(new THREE.BoxGeometry(150, 0.4, 12), poolMat);
+  pool.position.set(0, 204.3, 0);
+  g.add(pool);
+  // Pool deck rim (light concrete) so the water doesn't bleed past edge.
+  const rimMat = new THREE.MeshStandardMaterial({ color: 0xd8d4c8, roughness: 0.7 });
+  const rimT = new THREE.Mesh(new THREE.BoxGeometry(160, 0.5, 1.2), rimMat);
+  rimT.position.set(0, 204.4, -7); g.add(rimT);
+  const rimB = new THREE.Mesh(new THREE.BoxGeometry(160, 0.5, 1.2), rimMat);
+  rimB.position.set(0, 204.4,  7); g.add(rimB);
+  g.userData.poolMat = poolMat;
   return g;
 }
 
@@ -259,6 +283,12 @@ function createSupertrees() {
   const ribMat = new THREE.MeshStandardMaterial({
     color: 0x4a3a30, roughness: 0.7, metalness: 0.3,
   });
+  // LED light bands wrap each trunk in real life (Gardens by the Bay light
+  // show). Magenta-purple glow ramps with day/night phase via main.js.
+  const ledMat = new THREE.MeshStandardMaterial({
+    color: 0x101018, roughness: 0.3, metalness: 0.0,
+    emissive: 0xff5fb0, emissiveIntensity: 0.6,
+  });
 
   for (let i = 0; i < 18; i++) {
     // Spiral around grove center
@@ -294,7 +324,19 @@ function createSupertrees() {
       rib.position.set(tx + Math.cos(ang) * 1.8, h * 0.475, tz + Math.sin(ang) * 1.8);
       g.add(rib);
     }
+
+    // 4 thin LED strips inset between rib pairs — emissive driven by night.
+    for (let k = 0; k < 4; k++) {
+      const ang = (k + 0.5) * Math.PI / 2;       // offset 45° from ribs
+      const led = new THREE.Mesh(
+        new THREE.BoxGeometry(0.18, h * 0.85, 0.18),
+        ledMat
+      );
+      led.position.set(tx + Math.cos(ang) * 1.55, h * 0.45, tz + Math.sin(ang) * 1.55);
+      g.add(led);
+    }
   }
+  g.userData.ledMat = ledMat;
   return g;
 }
 
