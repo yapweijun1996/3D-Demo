@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { loadRoadTextures, loadSidewalkTextures, setRepeatMeters } from './textures.js';
+import { loadRoadTextures, loadSidewalkTextures, loadPaintNoiseTexture, setRepeatMeters } from './textures.js';
 import { emitParallelStrip } from './road-emitter.js';
 import { buildZebraCrossings } from './road-markings.js';
 
@@ -123,36 +123,54 @@ export async function buildOSMRoads(scene) {
       }
     }
 
+    // Painted lane markings — MeshStandardMaterial so they receive shadow
+    // and don't blow out under bloom. Color values target real-world paint
+    // albedo (worn thermoplastic ~0.7 not pure white). Wear noise texture
+    // breaks up uniform fields so bloom never sees a flat band of >1.0.
+    // polygonOffset replaces the +0.005 Y-stack so paint sits coplanar with
+    // the road and properly receives the car's directional shadow.
+    const paintNoise = loadPaintNoiseTexture();
+
     // White center lane line — Singapore standard. Solid for trunk (single
     // carriageway feel), dashed for motorway (lane separator).
     if (tier.t === 'motorway' || tier.t === 'trunk') {
       const dashed = (tier.t === 'motorway');
       const stripeGeo = emitParallelStrip(ways, _proj, { widthMeters: tier.w * 0.10, dashed });
-      const stripeMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff, fog: true, side: THREE.DoubleSide,   // backface cull would hide stripe (same bug as roads)
+      const stripeMat = new THREE.MeshStandardMaterial({
+        color: tier.t === 'motorway' ? 0xc0c0c0 : 0xb8b8b8,
+        roughness: 0.85, metalness: 0.0, envMapIntensity: 0.3,
+        map: paintNoise,
+        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+        side: THREE.DoubleSide,
       });
       const stripe = new THREE.Mesh(stripeGeo, stripeMat);
-      stripe.position.y = tier.y + 0.005;
+      stripe.position.y = tier.y;
       stripe.renderOrder = 2;
+      stripe.receiveShadow = true;
       scene.add(stripe);
     }
 
     // Yellow edge lines — Singapore standard for motorway/trunk/primary.
-    // Inset 0.15m from the road edge so the line sits visibly inside the
-    // asphalt rather than spilling onto sidewalk/grass.
+    // Inset 0.15m from road edge. Desaturated ochre 0xc9a23a (real paint),
+    // not the LED-saturated 0xffd24a we previously used.
     if (tier.t === 'motorway' || tier.t === 'trunk' || tier.t === 'primary') {
       const edgeOffset = tier.w / 2 - 0.15;
+      const edgeMat = new THREE.MeshStandardMaterial({
+        color: 0xc9a23a,
+        roughness: 0.85, metalness: 0.0, envMapIntensity: 0.3,
+        map: paintNoise,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+        side: THREE.DoubleSide,
+      });
       for (const side of [-1, 1]) {
         const edgeGeo = emitParallelStrip(ways, _proj, {
           widthMeters: 0.20,
           offsetMeters: side * edgeOffset,
         });
-        const edgeMat = new THREE.MeshBasicMaterial({
-          color: 0xffd24a, fog: true, side: THREE.DoubleSide,
-        });
         const edge = new THREE.Mesh(edgeGeo, edgeMat);
-        edge.position.y = tier.y + 0.006;     // slightly above white stripe
+        edge.position.y = tier.y;
         edge.renderOrder = 2;
+        edge.receiveShadow = true;
         scene.add(edge);
       }
     }

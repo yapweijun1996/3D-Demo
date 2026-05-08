@@ -27,6 +27,38 @@ export function loadGroundTextures() {
   };
 }
 
+// Procedural value-noise grayscale, 256x256, used as multiplier on road paint
+// albedo so the white doesn't read as a flat LED stripe under bloom. Streaky
+// repeat (40,1) along the stripe direction reads as tire-worn drag marks.
+let _paintNoiseTex = null;
+export function loadPaintNoiseTexture() {
+  if (_paintNoiseTex) return _paintNoiseTex;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  const img = ctx.createImageData(256, 256);
+  for (let i = 0; i < img.data.length; i += 4) {
+    // Two octaves: low-freq smudges + high-freq grit.
+    const lo = 200 + Math.random() * 30;
+    const hi = (Math.random() - Math.random()) * 24;
+    const n = Math.max(120, Math.min(255, lo + hi));
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = n;
+    img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  // Occasional darker tire scuff blots.
+  ctx.fillStyle = 'rgba(80,80,80,0.35)';
+  for (let k = 0; k < 12; k++) {
+    const x = Math.random() * 256, y = Math.random() * 256, r = 6 + Math.random() * 14;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  _paintNoiseTex = tex;
+  return tex;
+}
+
 // Polyhaven concrete_floor_02 1k — diffuse + nor_gl + roughness. Sidewalks.
 export function loadSidewalkTextures() {
   return {
