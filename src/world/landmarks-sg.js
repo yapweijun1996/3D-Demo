@@ -54,6 +54,9 @@ export async function buildSGLandmarks(scene, proj) {
       name: p.name, x, z,
       r: FOOTPRINT_RADIUS[p.name] || 30,
     });
+    if (p.name === 'flyer' && g.userData.capsuleMat) {
+      scene.userData.flyerCapsuleMat = g.userData.capsuleMat;
+    }
   }
   console.log(`[landmarks-sg] placed ${groups.length} iconic landmarks`);
   return groups;
@@ -132,6 +135,33 @@ function createHelix() {
     })
   );
   g.add(tube1); g.add(tube2);
+
+  // V-shaped pylons under the deck — real Helix has 4 angled support pairs
+  // diving into the water. Without them the tube structure visibly floats.
+  const pylonMat = new THREE.MeshStandardMaterial({
+    color: 0x707074, roughness: 0.55, metalness: 0.55,
+  });
+  const PYLON_X = [-105, -35, 35, 105];
+  for (const px of PYLON_X) {
+    for (const side of [-1, 1]) {
+      const pylon = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.7, 14, 8),
+        pylonMat
+      );
+      pylon.position.set(px, -3.5, side * 1.5);
+      // Tilt outward so two pylons form a V into the water.
+      pylon.rotation.z = side * -0.18;
+      pylon.castShadow = true;
+      g.add(pylon);
+    }
+    // Cross-bar connecting the V near the top
+    const cross = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.5, 7),
+      pylonMat
+    );
+    cross.position.set(px, 1.5, 0);
+    g.add(cross);
+  }
 
   // Flat walkway deck
   const deck = new THREE.Mesh(
@@ -275,9 +305,12 @@ function createFlyer() {
   const wheelMat = new THREE.MeshStandardMaterial({
     color: 0xe0e0e0, roughness: 0.45, metalness: 0.7,
   });
+  // Capsule pods — windows emit warm light. Base emissiveIntensity 0.25 so
+  // they read as glowing cabins even mid-day; main.js can drive it higher
+  // at night via scene.userData.flyerCapsuleMat (mirrors HDB / CBD wiring).
   const capsuleMat = new THREE.MeshStandardMaterial({
-    color: 0xb0c8e0, roughness: 0.3, metalness: 0.4,
-    emissive: 0x404060, emissiveIntensity: 0.1,
+    color: 0xd6e4f4, roughness: 0.25, metalness: 0.35,
+    emissive: 0xfff0c0, emissiveIntensity: 0.25,
   });
 
   // Wheel rim (Torus, oriented in YZ plane so it stands vertically facing X)
@@ -332,6 +365,7 @@ function createFlyer() {
       g.add(leg);
     }
   }
+  g.userData.capsuleMat = capsuleMat;
   return g;
 }
 

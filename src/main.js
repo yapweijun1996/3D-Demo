@@ -263,6 +263,10 @@ async function main() {
     } else if (savedFogDensity !== null && scene.fog?.density != null) {
       scene.fog.density = savedFogDensity;
       savedFogDensity = null;
+      // Snap camera Y back near car height so followCam spring doesn't have
+      // to crawl 60m+ down — that long descent looks broken.
+      const cp = car.group.position;
+      camera.position.y = cp.y + CFG.camera.followHeight;
     }
     exhaust.tick(drive.state);
     animateSigns(signs, now, camera);
@@ -276,6 +280,10 @@ async function main() {
     // CBD glass tower windows ramp on the same curve.
     if (scene.userData.cbdWindowsMat) {
       scene.userData.cbdWindowsMat.emissiveIntensity = 0.05 + 2.4 * dayNight.phase;
+    }
+    // Flyer capsule cabins glow warmly at night.
+    if (scene.userData.flyerCapsuleMat) {
+      scene.userData.flyerCapsuleMat.emissiveIntensity = 0.25 + 1.6 * dayNight.phase;
     }
     if (lamps) lamps.tick(now, dayNight);
     if (traffic) traffic.tick(now, dt);
