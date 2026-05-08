@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { surfaceY } from './road-tiers.js';
+import { logPlacement } from './diag.js';
 
 // NPC traffic — 40 cars driving along OSM primary/trunk/motorway ways.
 // Pure visuals (no Rapier). Each car has a CatmullRomCurve3 path + progress
@@ -157,7 +158,11 @@ export function buildTraffic(scene, ways, project, opts = {}) {
     busMesh.inst.instanceMatrix.needsUpdate = true;
   }
 
-  console.log(`[traffic] ${cars.length} NPC cars (${counts.sedan} sedan / ${counts.taxi} taxi / ${counts.bus} bus)`);
+  logPlacement('traffic', 'osm-arterials', {
+    candidates: candidates.length,
+    sedan: counts.sedan, taxi: counts.taxi, bus: counts.bus,
+    placed: cars.length,
+  });
   return { tick, cars };
 }
 

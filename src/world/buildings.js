@@ -3,6 +3,7 @@ import { CFG, PALETTE } from '../config.js';
 import { instanceFromGLB, matricesFromPlacements } from '../loaders/instance-from-glb.js';
 import { DISTRICTS, TYPOLOGY, LANDMARK_FOOTPRINTS } from './atlas.js';
 import { walkAtSpacing } from './road-emitter.js';
+import { logPlacement } from './diag.js';
 
 // Returns true when (x, z) sits inside ANY iconic landmark's clearance
 // circle. Procedural towers/HDB use this to refuse placements that would
@@ -105,7 +106,11 @@ function buildShophouses(scene, region, district, proj, ways) {
       alongX: tanX, alongZ: tanZ,                // along road tangent
     });
   });
-  console.log(`[shophouse] district=${district.id} ways=${districtWays.length} samples=${_samples} kFiltered=${_kFiltered} bboxFiltered=${_bboxFiltered} placed=${placements.length}`);
+  logPlacement('shophouse', district.id, {
+    ways: districtWays.length, samples: _samples,
+    kFiltered: _kFiltered, bboxFiltered: _bboxFiltered,
+    placed: placements.length,
+  });
 
   if (placements.length === 0) return 0;
 

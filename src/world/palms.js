@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { walkAtSpacing } from './road-emitter.js';
 import { districtAtWorld, getDistrict } from './districts.js';
+import { logPlacement } from './diag.js';
 
 // Tree-lined avenues — Garden City identity. Procedural palms placed every
 // 25m along OSM ways, alternating left/right at perpendicular offset just
@@ -150,7 +151,7 @@ export function buildPalms(scene, ways, project) {
   leafInst.instanceMatrix.needsUpdate = true;
   scene.add(trunkInst);
   scene.add(leafInst);
-  console.log(`[palms] ${matrices.length} trees placed along OSM avenues`);
+  logPlacement('palms', 'osm-avenues', { ways: filtered.length, placed: matrices.length });
 }
 
 // ---- legacy random sprinkle (unchanged) ----
