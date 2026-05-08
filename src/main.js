@@ -12,6 +12,7 @@ import { buildOSMRoads, projectLatLng } from './world/roads-osm.js';
 import { buildCoastline } from './world/coastline.js';
 import { buildWater } from './world/water.js';
 import { buildLandmarks } from './world/landmarks.js';
+import { buildSGLandmarks } from './world/landmarks-sg.js';
 import { buildBuildings } from './world/buildings.js';
 import { buildPalms } from './world/palms.js';
 import { buildCones } from './world/cones.js';
@@ -106,6 +107,7 @@ async function main() {
   }
   buildWater(scene, tickers);
   tickers.push(...buildLandmarks(scene, proj));
+  await buildSGLandmarks(scene, proj);
   const buildings = buildBuildings(scene, assets, proj, osm?.ways);
   buildPalms(scene, osm?.ways, proj);
   buildCones(scene, assets);
