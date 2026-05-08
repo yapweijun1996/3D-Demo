@@ -44,13 +44,18 @@ export function createStats(renderer) {
       const trisStr = tris > 1000 ? (tris / 1000).toFixed(1) + 'k' : String(tris);
       const col = lastFps >= 55 ? '#9efacc' : lastFps >= 30 ? TOKENS.gold : '#ff7a7a';
       el.style.color = col;
+      const dayState = window.__sgDayState?.();
+      const dayStr = dayState
+        ? `<span style="opacity:.3"> · </span>${dayState.mode} ${dayState.phase.toFixed(2)}`
+        : '';
       el.innerHTML =
         `<span style="opacity:.5">FPS </span>${lastFps}` +
         `<span style="opacity:.3"> · </span>${avgMs.toFixed(1)}ms` +
         `<span style="opacity:.3"> · </span>peak ${maxMs.toFixed(1)}` +
         `<span style="opacity:.3"> · </span>${calls} calls` +
         `<span style="opacity:.3"> · </span>${trisStr}` +
-        (physMsMax > 0 ? `<span style="opacity:.3"> · </span>phys ${physMsMax.toFixed(1)}` : '');
+        (physMsMax > 0 ? `<span style="opacity:.3"> · </span>phys ${physMsMax.toFixed(1)}` : '') +
+        dayStr;
       acc = 0; frames = 0; maxMs = 0; physMsMax = 0;
     },
   };

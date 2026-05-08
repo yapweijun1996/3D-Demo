@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 import { CFG, PALETTE } from '../config.js';
 import { instanceFromGLB, matricesFromPlacements } from '../loaders/instance-from-glb.js';
-import { DISTRICTS, TYPOLOGY } from './districts.js';
+import { DISTRICTS, TYPOLOGY, LANDMARK_FOOTPRINTS } from './atlas.js';
 import { walkAtSpacing } from './road-emitter.js';
-import { LANDMARK_FOOTPRINTS } from './landmarks-sg.js';
 
 // Returns true when (x, z) sits inside ANY iconic landmark's clearance
 // circle. Procedural towers/HDB use this to refuse placements that would
@@ -82,10 +81,15 @@ function buildShophouses(scene, region, district, proj, ways) {
   // anything. 1.5m interval + (k % 4 keep) gives ~6m effective spacing
   // between shophouses.
   const placements = [];
+  let _samples = 0, _kFiltered = 0, _bboxFiltered = 0;
   walkAtSpacing(districtWays, proj, 1.5, ({ x, z, perpX, perpZ, tanX, tanZ, k }) => {
-    if (k % 4 !== 0) return;        // keep every 4th sample
+    _samples++;
+    if (k % 4 !== 0) { _kFiltered++; return; }
 
-    if (!(x >= region.xMin && x <= region.xMax && z >= region.zMin && z <= region.zMax)) return;
+    if (!(x >= region.xMin && x <= region.xMax && z >= region.zMin && z <= region.zMax)) {
+      _bboxFiltered++;
+      return;
+    }
     const side = (k % 2) ? 1 : -1;     // both sides of street
     // Push past sidewalk so house front sits on the kerb.
     const pushOut = 6.5;
@@ -101,6 +105,7 @@ function buildShophouses(scene, region, district, proj, ways) {
       alongX: tanX, alongZ: tanZ,                // along road tangent
     });
   });
+  console.log(`[shophouse] district=${district.id} ways=${districtWays.length} samples=${_samples} kFiltered=${_kFiltered} bboxFiltered=${_bboxFiltered} placed=${placements.length}`);
 
   if (placements.length === 0) return 0;
 
