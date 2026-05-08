@@ -33,7 +33,10 @@ export function buildTraffic(scene, ways, project, opts = {}) {
     });
     let len = 0;
     for (let i = 0; i < pts.length - 1; i++) len += pts[i].distanceTo(pts[i + 1]);
-    if (len < 120) continue;
+    // 30 m threshold (was 120) — OSM ways are heavily fragmented, so 120 m
+    // produced only 2 candidates citywide. The pickContinuationPath
+    // nearest-endpoint handover (T23) bridges short paths back-to-back.
+    if (len < 30) continue;
     candidates.push({ pts, length: len, tier: w.t, surfaceY: surfaceY(w.t) });
   }
   if (candidates.length === 0) {
