@@ -13,6 +13,7 @@ import { buildCoastline } from './world/coastline.js';
 import { buildWater } from './world/water.js';
 import { buildLandmarks } from './world/landmarks.js';
 import { buildSGLandmarks } from './world/landmarks-sg.js';
+import { applyLandmarkGlow } from './world/landmarks-glow.js';
 import { buildBuildings } from './world/buildings.js';
 import { buildPalms } from './world/palms.js';
 import { buildCones } from './world/cones.js';
@@ -208,6 +209,10 @@ async function main() {
   });
   // Expose teleport helper so dev tooling (preview eval) can drop the car
   // anywhere by lat/lng. Used for layout verification screenshots.
+  window.__sgDayNight = (target) => {
+    dayNight.setMode(target === 'night' ? 'night' : 'day');
+    return dayNight.mode;
+  };
   window.__sgTopDown = (on, alt) => {
     topDown = on === undefined ? !topDown : !!on;
     if (alt) topDownAlt = alt;
@@ -273,26 +278,12 @@ async function main() {
     for (const tick of tickers) tick(now, dt);
     checkSignTriggers();
 
-    // Drive HDB window glow with day/night phase — windows fade ON at dusk.
+    // HDB windows still driven inline (it's the only one with a non-userData mat).
     if (buildings?.bodyMat) {
       buildings.bodyMat.emissiveIntensity = 0.05 + 1.75 * dayNight.phase;
     }
-    // CBD glass tower windows ramp on the same curve.
-    if (scene.userData.cbdWindowsMat) {
-      scene.userData.cbdWindowsMat.emissiveIntensity = 0.05 + 2.4 * dayNight.phase;
-    }
-    // Flyer capsule cabins glow warmly at night.
-    if (scene.userData.flyerCapsuleMat) {
-      scene.userData.flyerCapsuleMat.emissiveIntensity = 0.25 + 1.6 * dayNight.phase;
-    }
-    // Supertree LED bands — magenta at night, almost off in day.
-    if (scene.userData.supertreeLedMat) {
-      scene.userData.supertreeLedMat.emissiveIntensity = 0.15 + 2.2 * dayNight.phase;
-    }
-    // MBS infinity pool glows turquoise at night.
-    if (scene.userData.mbsPoolMat) {
-      scene.userData.mbsPoolMat.emissiveIntensity = 0.15 + 1.3 * dayNight.phase;
-    }
+    // All landmark-driven emissives ramp through one SSOT table.
+    applyLandmarkGlow(scene, dayNight.phase);
     if (lamps) lamps.tick(now, dayNight);
     if (traffic) traffic.tick(now, dt);
     if (scene.userData.palmWindUniforms) scene.userData.palmWindUniforms.uTime.value = now;

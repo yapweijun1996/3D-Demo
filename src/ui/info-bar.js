@@ -51,12 +51,11 @@ export function createInfoBar({ totalLandmarks = 6 } = {}) {
   const dotEls  = el.querySelectorAll('[data-i]');
 
   return {
-    tickDayNight(phase /* 0=day, 1=night */) {
-      // 0..0.25 day, 0.25..0.4 dusk, 0.4..0.7 night, 0.7..1 dawn
+    tickDayNight(phase /* 0=day, 1=night, lerps directly 0↔1 */) {
       let icon = '☀', label = 'DAY', col = TOKENS.gold;
-      if (phase > 0.7)      { icon = '🌅'; label = 'DAWN';  col = TOKENS.gold; }
-      else if (phase > 0.4) { icon = '🌙'; label = 'NIGHT'; col = TOKENS.teal; }
-      else if (phase > 0.2) { icon = '🌆'; label = 'DUSK';  col = '#ff8a5b'; }
+      if (phase > 0.85)      { icon = '🌙'; label = 'NIGHT'; col = TOKENS.teal; }
+      else if (phase > 0.45) { icon = '🌆'; label = 'DUSK';  col = '#ff8a5b'; }
+      else if (phase > 0.15) { icon = '🌅'; label = 'DAWN';  col = TOKENS.gold; }
       iconEl.textContent = icon;
       labelEl.textContent = label;
       labelEl.style.color = col;

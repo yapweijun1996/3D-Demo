@@ -63,6 +63,10 @@ export async function buildSGLandmarks(scene, proj) {
     if (p.name === 'mbs' && g.userData.poolMat) {
       scene.userData.mbsPoolMat = g.userData.poolMat;
     }
+    if (p.name === 'helix') {
+      if (g.userData.tubeMatA) scene.userData.helixTubeMatA = g.userData.tubeMatA;
+      if (g.userData.tubeMatB) scene.userData.helixTubeMatB = g.userData.tubeMatB;
+    }
   }
   console.log(`[landmarks-sg] placed ${groups.length} iconic landmarks`);
   return groups;
@@ -145,20 +149,21 @@ function createHelix() {
       return target.set(t * 280 - 140, 3 + Math.sin(a) * 3, Math.cos(a) * 3);
     }
   }
-  const tubeMat = new THREE.MeshStandardMaterial({
+  const tubeMatA = new THREE.MeshStandardMaterial({
     color: 0xaaaaaa, roughness: 0.4, metalness: 0.6, emissive: 0xff5544, emissiveIntensity: 0.05,
   });
+  const tubeMatB = new THREE.MeshStandardMaterial({
+    color: 0xaaaaaa, roughness: 0.4, metalness: 0.6, emissive: 0x44aaff, emissiveIntensity: 0.05,
+  });
   const tube1 = new THREE.Mesh(
-    new THREE.TubeGeometry(new HelixCurve(0), 200, 0.18, 8, false),
-    tubeMat
+    new THREE.TubeGeometry(new HelixCurve(0), 200, 0.18, 8, false), tubeMatA
   );
   const tube2 = new THREE.Mesh(
-    new THREE.TubeGeometry(new HelixCurve(Math.PI), 200, 0.18, 8, false),
-    new THREE.MeshStandardMaterial({
-      color: 0xaaaaaa, roughness: 0.4, metalness: 0.6, emissive: 0x44aaff, emissiveIntensity: 0.05,
-    })
+    new THREE.TubeGeometry(new HelixCurve(Math.PI), 200, 0.18, 8, false), tubeMatB
   );
   g.add(tube1); g.add(tube2);
+  g.userData.tubeMatA = tubeMatA;
+  g.userData.tubeMatB = tubeMatB;
 
   // V-shaped pylons under the deck — real Helix has 4 angled support pairs
   // diving into the water. Without them the tube structure visibly floats.

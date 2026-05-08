@@ -152,7 +152,7 @@ export function bindDayNight(scene, renderer, pmrem, lights, tickers) {
     if (e.code === 'KeyT') startLerp(mode === 'day' ? 'night' : 'day');
   });
 
-  return {
+  const api = {
     get mode() { return mode; },
     get lerping() { return lerpT < 1; },
     // 0 = full day, 1 = full night, smoothly eased during transitions.
@@ -163,5 +163,8 @@ export function bindDayNight(scene, renderer, pmrem, lights, tickers) {
       const e = ease(lerpT);
       return lerpTo === NIGHT ? e : 1 - e;
     },
+    // Programmatic toggle for dev tooling — bypasses isTrusted checks.
+    setMode(target) { startLerp(target === 'night' ? 'night' : 'day'); },
   };
+  return api;
 }
