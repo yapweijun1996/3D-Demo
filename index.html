@@ -6,22 +6,16 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Drive Singapore — v0.2</title>
+<title>Drive Singapore</title>
 <style>
-  html,body{margin:0;padding:0;height:100%;height:100dvh;background:#9cc8e8;overflow:hidden;font-family:system-ui,sans-serif;color:#fff;user-select:none;touch-action:none;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%;height:100dvh;background:#050a14;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;color:#f4f6fb;user-select:none;touch-action:none;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
   canvas#c{display:block;width:100vw;height:100vh;height:100dvh}
-
-  .hud{position:fixed;left:14px;bottom:14px;font-size:13px;line-height:1.6;text-shadow:0 1px 3px rgba(0,0,0,.55);pointer-events:none}
-  .hud kbd{display:inline-block;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.35);border-bottom-width:2px;border-radius:4px;padding:1px 7px;font-family:inherit;font-size:12px;margin:0 2px}
-
-  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,12,20,.55);backdrop-filter:blur(4px);cursor:pointer;transition:opacity .25s}
+  /* Tap-to-start veil — hides until canvas/click; ui/hud.js takes over after */
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .35s ease;z-index:80;background:radial-gradient(circle at 50% 60%, rgba(10,18,32,0) 0%, rgba(5,10,20,.55) 70%)}
   .overlay.hidden{opacity:0;pointer-events:none}
-  .overlay .panel{background:rgba(20,28,42,.92);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:32px 40px;text-align:center;box-shadow:0 16px 50px rgba(0,0,0,.5);max-width:420px}
-  .overlay h1{margin:0 0 8px;font-size:28px;letter-spacing:.04em}
-  .overlay .subtitle{margin:0 0 18px;font-size:14px;opacity:.75}
-  .overlay .keys{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:18px auto;max-width:280px;text-align:left;font-size:14px}
-  .overlay .keys b{font-family:ui-monospace,monospace}
-  .overlay .cta{margin-top:18px;font-size:13px;opacity:.65}
+  .overlay .cta{position:absolute;bottom:80px;display:flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(10,18,32,.62);backdrop-filter:blur(14px) saturate(1.35);-webkit-backdrop-filter:blur(14px) saturate(1.35);border:1px solid rgba(255,255,255,.16);border-radius:999px;font:600 12px -apple-system,BlinkMacSystemFont,system-ui,sans-serif;letter-spacing:.10em;text-transform:uppercase;animation:pulse 2.4s ease-in-out infinite}
+  .overlay .cta .dot{width:6px;height:6px;border-radius:50%;background:#F5B344;box-shadow:0 0 12px #F5B344}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:.95}50%{transform:scale(1.04);opacity:1}}
 </style>
 <script type="importmap">
 {
@@ -34,21 +28,8 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<div class="hud">
-  Drive: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · Boost: <kbd>Shift</kbd> · Day/Night: <kbd>T</kbd> · Close: <kbd>Esc</kbd>
-</div>
 <div class="overlay" id="overlay">
-  <div class="panel">
-    <h1>Drive Singapore</h1>
-    <p class="subtitle">A mini-tour of SG landmarks · Three.js</p>
-    <div class="keys">
-      <b>W / ↑</b><span>accelerate</span>
-      <b>S / ↓</b><span>brake / reverse</span>
-      <b>A / D</b><span>steer left / right</span>
-      <b>Esc</b><span>close popup</span>
-    </div>
-    <p class="cta">Click anywhere or press any key to start</p>
-  </div>
+  <div class="cta"><span class="dot"></span>Click or press any key to start</div>
 </div>
 <script>
   // Cache-bust the entry every page load — forces browser to fetch fresh main.js

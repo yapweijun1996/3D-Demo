@@ -1,46 +1,56 @@
-// Lightweight modal that displays sign content. Pure DOM, no framework.
-// Exports: openModal(signCfg), closeModal(), isOpen()
-// Pressing Escape (handled in main) or clicking the backdrop closes it.
+import { injectTheme, TOKENS } from './theme.js';
 
+// Sign-info modal with new design system. Card matches sg-card tokens,
+// landmark color drives the side accent rail, content uses serif-ish font.
 let openId = null;
 let onCloseCb = null;
 let dom = null;
 
 function ensureDom() {
   if (dom) return dom;
+  injectTheme();
   const wrap = document.createElement('div');
   wrap.id = 'sign-modal';
   wrap.innerHTML = `
     <div class="sm-backdrop"></div>
-    <div class="sm-card">
-      <div class="sm-bar"></div>
-      <h2 class="sm-title"></h2>
-      <ul class="sm-lines"></ul>
+    <div class="sm-card sg-slide-up">
+      <div class="sm-rail"></div>
+      <div class="sm-body">
+        <div class="sm-eyebrow">Singapore Landmark</div>
+        <h2 class="sm-title"></h2>
+        <ul class="sm-lines"></ul>
+        <div class="sm-foot">Press <kbd>Esc</kbd> or click outside to dismiss</div>
+      </div>
       <button class="sm-close" aria-label="Close">×</button>
     </div>`;
   Object.assign(wrap.style, {
     position: 'fixed', inset: '0', display: 'none',
-    alignItems: 'center', justifyContent: 'center', zIndex: '50',
+    alignItems: 'center', justifyContent: 'center', zIndex: '90',
   });
   const css = document.createElement('style');
   css.textContent = `
-    #sign-modal .sm-backdrop{position:absolute;inset:0;background:rgba(8,12,20,.55);backdrop-filter:blur(4px);cursor:pointer}
+    #sign-modal .sm-backdrop{position:absolute;inset:0;background:rgba(5,10,20,.62);backdrop-filter:blur(6px);cursor:pointer}
     #sign-modal .sm-card{
-      position:relative;min-width:340px;max-width:520px;padding:22px 26px 24px;
-      background:rgba(20,28,42,.95);color:#f0e8d0;border:1px solid rgba(255,255,255,.16);
-      border-radius:14px;box-shadow:0 22px 60px rgba(0,0,0,.5);
-      animation:sm-in .25s ease-out;
+      position:relative;display:flex;min-width:380px;max-width:560px;
+      background:${TOKENS.glassHi};backdrop-filter:${TOKENS.blur};
+      color:${TOKENS.text};border:1px solid ${TOKENS.borderHi};border-radius:18px;
+      box-shadow:0 28px 70px rgba(0,0,0,.55);overflow:hidden;
+      font-family:${TOKENS.font};
     }
-    #sign-modal .sm-bar{height:5px;border-radius:4px;margin:-4px -10px 14px;background:#888}
-    #sign-modal .sm-title{margin:0 0 12px;font-size:24px;letter-spacing:.04em}
+    #sign-modal .sm-rail{width:6px;background:${TOKENS.gold};flex-shrink:0}
+    #sign-modal .sm-body{padding:22px 28px 24px;flex:1}
+    #sign-modal .sm-eyebrow{font:600 10px ${TOKENS.font};letter-spacing:.22em;text-transform:uppercase;color:${TOKENS.gold};opacity:.85;margin-bottom:6px}
+    #sign-modal .sm-title{margin:0 0 14px;font:700 24px ${TOKENS.font};letter-spacing:-.005em;line-height:1.15}
     #sign-modal .sm-lines{margin:0;padding:0;list-style:none}
-    #sign-modal .sm-lines li{padding:5px 0;font-size:15px;opacity:.9;line-height:1.5;font-family:ui-monospace,monospace}
+    #sign-modal .sm-lines li{padding:6px 0;font:500 14px ${TOKENS.font};opacity:.86;line-height:1.55;border-top:1px solid rgba(255,255,255,.06)}
+    #sign-modal .sm-lines li:first-child{border-top:0}
+    #sign-modal .sm-foot{margin-top:18px;font:500 11px ${TOKENS.font};letter-spacing:.04em;opacity:.45;text-transform:uppercase}
+    #sign-modal .sm-foot kbd{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:4px;padding:1px 5px;font-family:${TOKENS.mono};font-size:10px}
     #sign-modal .sm-close{
-      position:absolute;top:8px;right:12px;background:none;border:0;color:#f0e8d0;
-      font-size:28px;line-height:1;cursor:pointer;opacity:.7
+      position:absolute;top:10px;right:14px;background:none;border:0;color:${TOKENS.text};
+      font-size:26px;line-height:1;cursor:pointer;opacity:.55;font-family:${TOKENS.font}
     }
     #sign-modal .sm-close:hover{opacity:1}
-    @keyframes sm-in{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
   `;
   document.head.appendChild(css);
   document.body.appendChild(wrap);
@@ -52,7 +62,9 @@ function ensureDom() {
 
 export function openModal(sign, onClose) {
   const w = ensureDom();
-  w.querySelector('.sm-bar').style.background = '#' + sign.color.toString(16).padStart(6, '0');
+  const col = '#' + sign.color.toString(16).padStart(6, '0');
+  w.querySelector('.sm-rail').style.background = col;
+  w.querySelector('.sm-eyebrow').style.color = col;
   w.querySelector('.sm-title').textContent = sign.title;
   const ul = w.querySelector('.sm-lines');
   ul.innerHTML = '';
@@ -62,6 +74,11 @@ export function openModal(sign, onClose) {
     ul.appendChild(li);
   }
   w.style.display = 'flex';
+  // Re-trigger slide-up animation
+  const card = w.querySelector('.sm-card');
+  card.classList.remove('sg-slide-up');
+  void card.offsetWidth;
+  card.classList.add('sg-slide-up');
   openId = sign.id;
   onCloseCb = onClose;
 }

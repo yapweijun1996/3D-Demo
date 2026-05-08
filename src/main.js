@@ -38,6 +38,9 @@ import { createMinimap } from './ui/minimap.js';
 import { maybeBindTouchControls } from './ui/touch-controls.js';
 import { createSplash } from './ui/splash.js';
 import { createSpeedometer } from './ui/speedometer.js';
+import { createControlsHint } from './ui/hud.js';
+import { createInfoBar } from './ui/info-bar.js';
+import { createDistrictBanner } from './ui/district-banner.js';
 
 import { buildPostFX } from './render/postfx.js';
 
@@ -166,6 +169,10 @@ async function main() {
   const stats = createStats(renderer);
   const minimap = createMinimap(car, signs, osm?.minimapSegs);
   const speedo = createSpeedometer();
+  createControlsHint();
+  const infoBar = createInfoBar({ totalLandmarks: signs.length });
+  const districtBanner = createDistrictBanner(car);
+  const visited = new Set();
 
   let now = 0;
   // Transition-only trigger: a sign fires only when the car CROSSES from outside
@@ -178,7 +185,11 @@ async function main() {
       const dx = cp.x - s.position.x, dz = cp.z - s.position.z;
       const inZone = (dx * dx + dz * dz) < r2;
       if (inZone && !s.wasInZone && !isOpen()) {
-        openModal(s, () => { s.visited = true; });
+        openModal(s, () => {
+          s.visited = true;
+          visited.add(s.id);
+          infoBar.setVisited(visited);
+        });
       }
       s.wasInZone = inZone;
     }
@@ -233,6 +244,8 @@ async function main() {
     postfx.render();
     minimap.tick();
     speedo.tick(drive.state);
+    infoBar.tickDayNight(dayNight.phase);
+    districtBanner.tick(dt);
     stats.tick(dt, { physicsMs });
     requestAnimationFrame(frame);
   })();
