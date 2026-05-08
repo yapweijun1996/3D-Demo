@@ -195,9 +195,35 @@ async function main() {
     }
   }
 
+  // Debug top-down camera — press V to toggle. Useful for verifying
+  // shophouse orientation and tower-vs-landmark layout from above.
+  let topDown = false;
+  let topDownAlt = 90;
+  let savedFogDensity = null;
   addEventListener('keydown', (e) => {
     if (e.code === 'Escape' && isOpen()) closeModal();
+    if (e.code === 'KeyV') topDown = !topDown;
+    if (topDown && (e.code === 'BracketLeft'))  topDownAlt = Math.max(50,  topDownAlt - 30);
+    if (topDown && (e.code === 'BracketRight')) topDownAlt = Math.min(800, topDownAlt + 30);
   });
+  // Expose teleport helper so dev tooling (preview eval) can drop the car
+  // anywhere by lat/lng. Used for layout verification screenshots.
+  window.__sgTopDown = (on, alt) => {
+    topDown = on === undefined ? !topDown : !!on;
+    if (alt) topDownAlt = alt;
+    return { topDown, topDownAlt };
+  };
+  window.__sgTeleport = (lat, lng) => {
+    if (!proj) return 'no proj';
+    const [x, z] = proj(lat, lng);
+    if (carPhys?.body) {
+      carPhys.body.setTranslation({ x, y: 1.0, z }, true);
+      carPhys.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    } else {
+      car.group.position.set(x, 0, z);
+    }
+    return [x, z];
+  };
 
   const postfx = buildPostFX(renderer, scene, camera);
 
@@ -224,6 +250,20 @@ async function main() {
       drive.sync();                            // visual sync from POST-step body state
     }
     followCam(dt, drive.state);                // camera reads fresh car.group transform + boost shake
+    if (topDown) {
+      const cp = car.group.position;
+      camera.position.set(cp.x, topDownAlt, cp.z + 0.01);
+      camera.lookAt(cp.x, 0, cp.z);
+      camera.fov = 60;                                 // override speed-based zoom
+      camera.updateProjectionMatrix();
+      if (savedFogDensity === null && scene.fog?.density != null) {
+        savedFogDensity = scene.fog.density;
+        scene.fog.density = 0.00005;                   // near zero → no atmospheric haze
+      }
+    } else if (savedFogDensity !== null && scene.fog?.density != null) {
+      scene.fog.density = savedFogDensity;
+      savedFogDensity = null;
+    }
     exhaust.tick(drive.state);
     animateSigns(signs, now, camera);
     for (const tick of tickers) tick(now, dt);
