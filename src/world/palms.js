@@ -78,24 +78,54 @@ export function buildPalms(scene, ways, project) {
   // Trunks
   const trunkGeo = new THREE.CylinderGeometry(0.18, 0.32, 4.5, 8);
   trunkGeo.translate(0, 2.25, 0);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6e4a2a, roughness: 0.85 });
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
   const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, matrices.length);
+  trunkInst.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(matrices.length * 3), 3);
   trunkInst.castShadow = true;
   trunkInst.frustumCulled = false;
 
   // Leaves — fan geometry merged
-  const leafGeo = buildLeafFan(7);
+  const leafGeo = buildLeafFan(5);
   const leafMat = new THREE.MeshStandardMaterial({
-    color: 0x4ea24a, roughness: 0.7, side: THREE.DoubleSide,
+    color: 0xffffff, roughness: 0.7, side: THREE.DoubleSide,
   });
   const leafInst = new THREE.InstancedMesh(leafGeo, leafMat, matrices.length);
+  leafInst.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(matrices.length * 3), 3);
   leafInst.castShadow = true;
   leafInst.frustumCulled = false;
+
+  // T17: HSL jitter via instanceColor — material.color set to white, so per-
+  // instance color IS the final albedo. Deterministic hash from index keeps
+  // layout stable across reloads.
+  const baseTrunk = new THREE.Color(0x6e4a2a);
+  const baseLeaf  = new THREE.Color(0x4ea24a);
+  const tmpHSL = {};
+  const tmpCol = new THREE.Color();
 
   for (let i = 0; i < matrices.length; i++) {
     trunkInst.setMatrixAt(i, matrices[i]);
     leafInst.setMatrixAt(i, matrices[i]);
+
+    // Trunk hue: ±5° hue, ±15% sat, ±10% lum — subtle variance
+    baseTrunk.getHSL(tmpHSL);
+    tmpCol.setHSL(
+      (tmpHSL.h + (h(i) - 0.5) * (10 / 360) + 1) % 1,
+      THREE.MathUtils.clamp(tmpHSL.s + (h(i + 7) - 0.5) * 0.30, 0, 1),
+      THREE.MathUtils.clamp(tmpHSL.l + (h(i + 13) - 0.5) * 0.20, 0, 1)
+    );
+    trunkInst.instanceColor.setXYZ(i, tmpCol.r, tmpCol.g, tmpCol.b);
+
+    // Leaf hue: ±20° hue (yellow-green to teal-green), ±25% sat, ±20% lum
+    baseLeaf.getHSL(tmpHSL);
+    tmpCol.setHSL(
+      (tmpHSL.h + (h(i + 23) - 0.5) * (40 / 360) + 1) % 1,
+      THREE.MathUtils.clamp(tmpHSL.s + (h(i + 29) - 0.5) * 0.50, 0.1, 1),
+      THREE.MathUtils.clamp(tmpHSL.l + (h(i + 31) - 0.5) * 0.40, 0.05, 0.7)
+    );
+    leafInst.instanceColor.setXYZ(i, tmpCol.r, tmpCol.g, tmpCol.b);
   }
+  trunkInst.instanceColor.needsUpdate = true;
+  leafInst.instanceColor.needsUpdate = true;
   trunkInst.instanceMatrix.needsUpdate = true;
   leafInst.instanceMatrix.needsUpdate = true;
   scene.add(trunkInst);
