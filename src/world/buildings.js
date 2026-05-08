@@ -85,6 +85,8 @@ function buildShophouses(scene, region, district, proj, ways) {
 
   if (placements.length === 0) return 0;
 
+  const W = 5.5, D = 12, H = 10;
+
   // Body: per-instance color via instanceColor; 3 stories tall (~10m).
   const bodyGeo = new THREE.BoxGeometry(1, 1, 1);
   const bodyMat = new THREE.MeshStandardMaterial({ roughness: 0.85 });
@@ -97,17 +99,39 @@ function buildShophouses(scene, region, district, proj, ways) {
   const roofMat = new THREE.MeshStandardMaterial({ color: 0xb85c3c, roughness: 0.7 });
   const roofs = new THREE.InstancedMesh(roofGeo, roofMat, placements.length);
 
+  // T14: 5-foot-way arcade columns. Each shophouse front gets 2 columns
+  // along the streetline + 1 lintel beam above, cast into a single
+  // InstancedMesh so all shophouses citywide share one drawcall per part.
+  // 2 columns × N houses → 2N instances.
+  const colGeo = new THREE.BoxGeometry(0.4, 3, 0.4);
+  const colMat = new THREE.MeshStandardMaterial({ color: 0xe8dcc4, roughness: 0.9 });
+  const columns = new THREE.InstancedMesh(colGeo, colMat, placements.length * 2);
+
+  const lintelGeo = new THREE.BoxGeometry(W, 0.3, 1.0);
+  const lintels  = new THREE.InstancedMesh(lintelGeo, colMat, placements.length);
+
+  // Pediment strip on roof front (decorative parapet)
+  const pedGeo = new THREE.BoxGeometry(W * 0.6, 1.2, 0.3);
+  const pedMat = new THREE.MeshStandardMaterial({ color: 0xd9cdb4, roughness: 0.9 });
+  const peds   = new THREE.InstancedMesh(pedGeo, pedMat, placements.length);
+
+  // Air-con boxes on side walls — 2 per shophouse on average.
+  const acGeo = new THREE.BoxGeometry(0.6, 0.5, 0.4);
+  const acMat = new THREE.MeshStandardMaterial({ color: 0xc8c8d0, roughness: 0.6, metalness: 0.4 });
+  const acCount = placements.length * 2;
+  const acs    = new THREE.InstancedMesh(acGeo, acMat, acCount);
+
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
-  const sV = new THREE.Vector3();
+  const sV = new THREE.Vector3(1, 1, 1);
   const tV = new THREE.Vector3();
   const colTmp = new THREE.Color();
   const palette = district.palette;
+  const yAxis = new THREE.Vector3(0, 1, 0);
 
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i];
-    const W = 5.5, D = 12, H = 10;
-    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.yaw);
+    q.setFromAxisAngle(yAxis, p.yaw);
 
     sV.set(W, H, D); tV.set(p.x, H / 2, p.z);
     m.compose(tV, q, sV); bodies.setMatrixAt(i, m);
@@ -116,12 +140,57 @@ function buildShophouses(scene, region, district, proj, ways) {
 
     sV.set(W * 1.1, 2.5, D * 1.1); tV.set(p.x, H + 1.25, p.z);
     m.compose(tV, q, sV); roofs.setMatrixAt(i, m);
+
+    // Front face direction is +tangent (perpendicular to perp). Compute
+    // local front offset = -D/2 along forward axis (forward = where the
+    // arcade and pediment face the road). yaw was set to perpVec*side
+    // direction in the placement loop, so "forward" rotates accordingly.
+    const fx = Math.cos(p.yaw);
+    const fz = Math.sin(p.yaw);
+    // Right-axis in local body frame
+    const rx = -fz, rz = fx;
+
+    // 2 columns positioned at left/right of front edge
+    sV.set(1, 1, 1);
+    for (let cc = 0; cc < 2; cc++) {
+      const sideShift = (cc === 0 ? -1 : 1) * (W * 0.35);
+      const cx2 = p.x + fx * (D * 0.5 + 0.3) + rx * sideShift;
+      const cz2 = p.z + fz * (D * 0.5 + 0.3) + rz * sideShift;
+      tV.set(cx2, 1.5, cz2);
+      m.compose(tV, q, sV); columns.setMatrixAt(i * 2 + cc, m);
+    }
+
+    // Lintel above arcade
+    const lx = p.x + fx * (D * 0.5 + 0.3);
+    const lz = p.z + fz * (D * 0.5 + 0.3);
+    tV.set(lx, 3.15, lz);
+    m.compose(tV, q, sV); lintels.setMatrixAt(i, m);
+
+    // Pediment on roof front
+    const px = p.x + fx * (D * 0.55);
+    const pz = p.z + fz * (D * 0.55);
+    tV.set(px, H + 0.6, pz);
+    m.compose(tV, q, sV); peds.setMatrixAt(i, m);
+
+    // 2 AC boxes on side walls (alternating sides) at floor 1 and 2
+    for (let ai = 0; ai < 2; ai++) {
+      const side = ai === 0 ? -1 : 1;
+      const ax = p.x + rx * (W * 0.5 + 0.25) * side + fx * (Math.random() - 0.5) * D * 0.5;
+      const az = p.z + rz * (W * 0.5 + 0.25) * side + fz * (Math.random() - 0.5) * D * 0.5;
+      const ay = 3.5 + (ai * 3) + Math.random() * 0.6;
+      tV.set(ax, ay, az);
+      m.compose(tV, q, sV); acs.setMatrixAt(i * 2 + ai, m);
+    }
   }
   bodies.instanceMatrix.needsUpdate = true;
   bodies.instanceColor.needsUpdate = true;
   roofs.instanceMatrix.needsUpdate = true;
-  bodies.castShadow = roofs.castShadow = true;
-  scene.add(bodies); scene.add(roofs);
+  columns.instanceMatrix.needsUpdate = true;
+  lintels.instanceMatrix.needsUpdate = true;
+  peds.instanceMatrix.needsUpdate = true;
+  acs.instanceMatrix.needsUpdate = true;
+  bodies.castShadow = roofs.castShadow = columns.castShadow = lintels.castShadow = peds.castShadow = acs.castShadow = true;
+  scene.add(bodies); scene.add(roofs); scene.add(columns); scene.add(lintels); scene.add(peds); scene.add(acs);
   return placements.length;
 }
 
