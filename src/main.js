@@ -228,6 +228,7 @@ async function main() {
     }
     if (lamps) lamps.tick(now, dayNight);
     if (traffic) traffic.tick(now, dt);
+    if (scene.userData.palmWindUniforms) scene.userData.palmWindUniforms.uTime.value = now;
 
     postfx.render();
     minimap.tick();

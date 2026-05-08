@@ -84,11 +84,29 @@ export function buildPalms(scene, ways, project) {
   trunkInst.castShadow = true;
   trunkInst.frustumCulled = false;
 
-  // Leaves — fan geometry merged
+  // Leaves — fan geometry merged.
+  // T19: wind sway via onBeforeCompile vertex patch. Per-instance phase from
+  // gl_InstanceID so each palm sways with its own offset; vertex Y > 0.5
+  // weights amplitude up the leaf so trunk attachment stays anchored.
   const leafGeo = buildLeafFan(5);
+  const _windUniforms = { uTime: { value: 0 } };
   const leafMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, roughness: 0.7, side: THREE.DoubleSide,
   });
+  leafMat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = _windUniforms.uTime;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>',
+        `#include <common>
+         uniform float uTime;
+         float palmHash(float n){ return fract(sin(n) * 43758.5453); }`)
+      .replace('#include <begin_vertex>',
+        `#include <begin_vertex>
+         float ph = palmHash(float(gl_InstanceID)) * 6.2831;
+         float sway = smoothstep(3.0, 5.5, transformed.y) * 0.18;
+         transformed.x += sin(uTime * 1.3 + ph) * sway;
+         transformed.z += cos(uTime * 1.05 + ph) * sway;`);
+  };
   const leafInst = new THREE.InstancedMesh(leafGeo, leafMat, matrices.length);
   leafInst.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(matrices.length * 3), 3);
   leafInst.castShadow = true;
@@ -126,6 +144,8 @@ export function buildPalms(scene, ways, project) {
   }
   trunkInst.instanceColor.needsUpdate = true;
   leafInst.instanceColor.needsUpdate = true;
+  // Expose wind uniform via scene userData so main loop can update it.
+  scene.userData.palmWindUniforms = _windUniforms;
   trunkInst.instanceMatrix.needsUpdate = true;
   leafInst.instanceMatrix.needsUpdate = true;
   scene.add(trunkInst);
