@@ -15,6 +15,13 @@ const SPAWN_RADIUS  = 300;
 const LANE_OFFSET   = 1.6;        // metres car offsets from road centerline (SG drives left)
 const NEAR_HANDOVER_R2 = 35 * 35; // prefer a continuation path whose endpoint is within 35 m
 
+// Mirrors TIERS y values from roads-osm.js. Used to drop NPC cars at the
+// correct road surface elevation so a sedan on a motorway (y=0.20) doesn't
+// sit visually below a sedan on a primary (y=0.12) and vice versa.
+const TIER_Y = { motorway: 0.20, trunk: 0.16, primary: 0.12, secondary: 0.08, tertiary: 0.04 };
+// Body-bottom offset above road surface (sedan bbox height/2 - axle drop).
+const RIDE_HEIGHT = 0.10;
+
 export function buildTraffic(scene, ways, project, opts = {}) {
   const COUNT = opts.count || 40;
   // Filter: only long ways (>120m) on big roads — ensures cars actually move.
@@ -29,7 +36,7 @@ export function buildTraffic(scene, ways, project, opts = {}) {
     let len = 0;
     for (let i = 0; i < pts.length - 1; i++) len += pts[i].distanceTo(pts[i + 1]);
     if (len < 120) continue;
-    candidates.push({ pts, length: len });
+    candidates.push({ pts, length: len, tier: w.t, surfaceY: TIER_Y[w.t] ?? 0.12 });
   }
   if (candidates.length === 0) {
     console.warn('[traffic] no candidate ways — skipping');
@@ -135,7 +142,7 @@ export function buildTraffic(scene, ways, project, opts = {}) {
 
       const yaw = Math.atan2(tx, tz);
       q.setFromAxisAngle(yAxis, yaw);
-      tV.set(laneX, 0.4, laneZ);
+      tV.set(laneX, (c.path.surfaceY ?? 0.12) + RIDE_HEIGHT, laneZ);
 
       if (d2 > DESPAWN_DIST2) {
         // Hide via zero-scale matrix (InstancedMesh has no per-inst visibility)
