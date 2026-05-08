@@ -12,6 +12,8 @@ import * as THREE from 'three';
 const SPEED = { sedan: 12, taxi: 10, bus: 7 };           // m/s along path
 const DESPAWN_DIST2 = 400 * 400;
 const SPAWN_RADIUS  = 300;
+const LANE_OFFSET   = 1.6;        // metres car offsets from road centerline (SG drives left)
+const NEAR_HANDOVER_R2 = 35 * 35; // prefer a continuation path whose endpoint is within 35 m
 
 export function buildTraffic(scene, ways, project, opts = {}) {
   const COUNT = opts.count || 40;
@@ -96,16 +98,19 @@ export function buildTraffic(scene, ways, project, opts = {}) {
 
     for (const c of cars) {
       c.progress += (c.speed * c.direction * dt) / c.totalLen;
-      if (c.progress >= 1) {
-        // Reached end — reassign new path, keep direction
-        c.path = pickPath(candidates);
-        c.totalLen = c.path.length;
-        c.progress = 0;
-      } else if (c.progress < 0) {
-        // Wrapped around going reverse — reassign and flip back to forward
-        c.path = pickPath(candidates);
-        c.totalLen = c.path.length;
-        c.progress = 1;
+
+      // Path completion — reassign to a path whose nearest endpoint is close
+      // to where we just were (avoids visible teleport across the city).
+      if (c.progress >= 1 || c.progress < 0) {
+        const endT = c.progress >= 1 ? 1 : 0;
+        const lastPos = c.path.curve.getPointAt(c.direction === 1 ? endT : (1 - endT));
+        const next = pickContinuationPath(candidates, lastPos);
+        c.path = next.path;
+        c.totalLen = next.path.length;
+        // Drop in at the endpoint nearest to lastPos so the new path starts
+        // visually at the old end.
+        c.progress = next.startProgress;
+        c.direction = next.direction;
       }
 
       const t = c.direction === 1 ? c.progress : (1 - c.progress);
@@ -113,13 +118,24 @@ export function buildTraffic(scene, ways, project, opts = {}) {
       const pos = c.path.curve.getPointAt(tClamped);
       const tan = c.path.curve.getTangentAt(tClamped);
 
-      const dx = pos.x - playerPos.x;
-      const dz = pos.z - playerPos.z;
+      // Defensive normalize — CatmullRomCurve3 can produce near-zero tangent
+      // at degenerate endpoints; reuse last known direction in that case.
+      let tx = tan.x * c.direction, tz = tan.z * c.direction;
+      const tlen = Math.hypot(tx, tz);
+      if (tlen < 0.001) { tx = c.lastTanX || 1; tz = c.lastTanZ || 0; }
+      else { tx /= tlen; tz /= tlen; c.lastTanX = tx; c.lastTanZ = tz; }
+      // Lane offset: SG drives left → cars sit on left of their direction of
+      // travel. Perpendicular-left of (tx, tz) is (-tz, tx).
+      const laneX = pos.x + (-tz) * LANE_OFFSET;
+      const laneZ = pos.z + ( tx) * LANE_OFFSET;
+
+      const dx = laneX - playerPos.x;
+      const dz = laneZ - playerPos.z;
       const d2 = dx * dx + dz * dz;
 
-      const yaw = Math.atan2(tan.x * c.direction, tan.z * c.direction);
+      const yaw = Math.atan2(tx, tz);
       q.setFromAxisAngle(yAxis, yaw);
-      tV.set(pos.x, 0.4, pos.z);
+      tV.set(laneX, 0.4, laneZ);
 
       if (d2 > DESPAWN_DIST2) {
         // Hide via zero-scale matrix (InstancedMesh has no per-inst visibility)
@@ -151,6 +167,34 @@ function pickPath(candidates) {
     pick.curve.arcLengthDivisions = Math.max(50, pick.pts.length * 4);
   }
   return pick;
+}
+
+// Find a continuation path: prefer one whose nearest endpoint is within a
+// tight radius of `nearPos` so the car visually keeps going from where it
+// just stopped. Falls back to a random pick if nothing is close enough.
+// Returns { path, startProgress, direction } so the car can resume cleanly.
+// Convention used by tick():
+//   direction = +1 → car moves from t=0 to t=1, progress 0→1 (t = progress)
+//   direction = -1 → car moves from t=1 to t=0, progress 0→1 (t = 1-progress)
+// In both cases the car always enters at progress=0 (the natural "begin").
+function pickContinuationPath(candidates, nearPos) {
+  let best = null, bestD2 = NEAR_HANDOVER_R2;
+  let bestDir = 1;
+  for (const c of candidates) {
+    const start = c.pts[0], end = c.pts[c.pts.length - 1];
+    const d2s = (start.x - nearPos.x) ** 2 + (start.z - nearPos.z) ** 2;
+    const d2e = (end.x   - nearPos.x) ** 2 + (end.z   - nearPos.z) ** 2;
+    if (d2s < bestD2) { bestD2 = d2s; best = c; bestDir =  1; }   // enter at start, drive forward
+    if (d2e < bestD2) { bestD2 = d2e; best = c; bestDir = -1; }   // enter at end, drive backward
+  }
+  if (best) {
+    if (!best.curve) {
+      best.curve = new THREE.CatmullRomCurve3(best.pts, false, 'catmullrom', 0.0);
+      best.curve.arcLengthDivisions = Math.max(50, best.pts.length * 4);
+    }
+    return { path: best, startProgress: 0, direction: bestDir };
+  }
+  return { path: pickPath(candidates), startProgress: 0, direction: 1 };
 }
 
 function makeVehicleMesh(type, count) {

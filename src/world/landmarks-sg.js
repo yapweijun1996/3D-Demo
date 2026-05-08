@@ -12,6 +12,22 @@ import * as THREE from 'three';
 //   Flyer:      1.2893, 103.8634
 //   Merlion:    1.2868, 103.8545
 
+// Footprint clearance radius (m) per landmark — used by buildings.js to skip
+// procedural tower placements that overlap an iconic landmark. Measured from
+// the landmark's anchor (Y=0) outward to the maximum geometry extent in XZ.
+const FOOTPRINT_RADIUS = {
+  mbs: 180,         // 3 towers + 340m skypark spans X
+  helix: 150,       // double helix tube spans length
+  esplanade: 50,    // twin domes + spike halo
+  supertrees: 65,   // grove cluster spiral
+  flyer: 90,        // 75m torus rim + leg base
+  merlion: 14,      // small statue + plinth
+};
+
+// Populated by buildSGLandmarks. Consumers (buildings.js) read this AFTER
+// landmarks have been placed to filter out clashing tower positions.
+export const LANDMARK_FOOTPRINTS = [];
+
 export async function buildSGLandmarks(scene, proj) {
   if (!proj) return [];
 
@@ -25,6 +41,7 @@ export async function buildSGLandmarks(scene, proj) {
   ];
 
   const groups = [];
+  LANDMARK_FOOTPRINTS.length = 0;
   for (const p of placements) {
     const [x, z] = proj(...p.latLng);
     const g = p.build();
@@ -33,6 +50,10 @@ export async function buildSGLandmarks(scene, proj) {
     g.userData.landmarkName = p.name;
     scene.add(g);
     groups.push(g);
+    LANDMARK_FOOTPRINTS.push({
+      name: p.name, x, z,
+      r: FOOTPRINT_RADIUS[p.name] || 30,
+    });
   }
   console.log(`[landmarks-sg] placed ${groups.length} iconic landmarks`);
   return groups;

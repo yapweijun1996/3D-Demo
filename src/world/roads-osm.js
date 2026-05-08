@@ -110,13 +110,31 @@ export async function buildOSMRoads(scene) {
     // total is well under budget.
     if (tier.t === 'primary' || tier.t === 'secondary' || tier.t === 'tertiary') {
       const swOffset = tier.w / 2 + SIDEWALK_W / 2;
+      // Explicit curb stone — narrow 0.20m dark strip flush with road, raised
+      // ~0.06m, sits between asphalt edge and sidewalk so the elevation step
+      // reads as a real kerb when seen from cockpit cam.
+      const curbMat = new THREE.MeshStandardMaterial({
+        color: 0x6a6a6e, roughness: 0.85, metalness: 0.0,
+      });
+      const curbInset = tier.w / 2 + 0.10;
+      for (const side of [-1, 1]) {
+        const curbGeo = emitParallelStrip(ways, _proj, {
+          widthMeters: 0.20,
+          offsetMeters: side * curbInset,
+        });
+        const curbMesh = new THREE.Mesh(curbGeo, curbMat);
+        curbMesh.position.y = tier.y + 0.06;
+        curbMesh.renderOrder = 1;
+        curbMesh.receiveShadow = true;
+        scene.add(curbMesh);
+      }
       for (const side of [-1, 1]) {
         const swGeo = emitParallelStrip(ways, _proj, {
           widthMeters: SIDEWALK_W,
           offsetMeters: side * swOffset,
         });
         const swMesh = new THREE.Mesh(swGeo, sidewalkMat);
-        swMesh.position.y = tier.y + 0.10;
+        swMesh.position.y = tier.y + 0.18;
         swMesh.renderOrder = 1;
         swMesh.receiveShadow = true;
         scene.add(swMesh);
@@ -140,7 +158,7 @@ export async function buildOSMRoads(scene) {
         color: tier.t === 'motorway' ? 0xc0c0c0 : 0xb8b8b8,
         roughness: 0.85, metalness: 0.0, envMapIntensity: 0.3,
         map: paintNoise,
-        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+        polygonOffset: true, polygonOffsetFactor: -1.5, polygonOffsetUnits: -2,
         side: THREE.DoubleSide,
       });
       const stripe = new THREE.Mesh(stripeGeo, stripeMat);
@@ -159,7 +177,7 @@ export async function buildOSMRoads(scene) {
         color: 0xc9a23a,
         roughness: 0.85, metalness: 0.0, envMapIntensity: 0.3,
         map: paintNoise,
-        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+        polygonOffset: true, polygonOffsetFactor: -1.5, polygonOffsetUnits: -2,
         side: THREE.DoubleSide,
       });
       for (const side of [-1, 1]) {

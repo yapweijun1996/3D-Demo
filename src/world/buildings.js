@@ -3,6 +3,18 @@ import { CFG, PALETTE } from '../config.js';
 import { instanceFromGLB, matricesFromPlacements } from '../loaders/instance-from-glb.js';
 import { DISTRICTS, TYPOLOGY } from './districts.js';
 import { walkAtSpacing } from './road-emitter.js';
+import { LANDMARK_FOOTPRINTS } from './landmarks-sg.js';
+
+// Returns true when (x, z) sits inside ANY iconic landmark's clearance
+// circle. Procedural towers/HDB use this to refuse placements that would
+// clip MBS / Helix / Esplanade etc.
+function clashesWithLandmark(x, z, extraR = 6) {
+  for (const lm of LANDMARK_FOOTPRINTS) {
+    const dx = x - lm.x, dz = z - lm.z;
+    if (dx * dx + dz * dz < (lm.r + extraR) * (lm.r + extraR)) return true;
+  }
+  return false;
+}
 
 // HDB blocks placed at REAL Singapore neighborhoods (Toa Payoh, Bishan, Ang Mo Kio,
 // Tampines, Jurong East, Woodlands), via projectLatLng from roads-osm.
@@ -70,7 +82,7 @@ function buildShophouses(scene, region, district, proj, ways) {
   // anything. 1.5m interval + (k % 4 keep) gives ~6m effective spacing
   // between shophouses.
   const placements = [];
-  walkAtSpacing(districtWays, proj, 1.5, ({ x, z, perpX, perpZ, k }) => {
+  walkAtSpacing(districtWays, proj, 1.5, ({ x, z, perpX, perpZ, tanX, tanZ, k }) => {
     if (k % 4 !== 0) return;        // keep every 4th sample
 
     if (!(x >= region.xMin && x <= region.xMax && z >= region.zMin && z <= region.zMax)) return;
@@ -79,8 +91,15 @@ function buildShophouses(scene, region, district, proj, ways) {
     const pushOut = 6.5;
     const px = x + perpX * pushOut * side;
     const pz = z + perpZ * pushOut * side;
-    const yaw = Math.atan2(perpZ * side, perpX * side);
-    placements.push({ x: px, z: pz, yaw, paletteIdx: k });
+    // Building rotated so local Z (depth, D=12) points OUTWARD perpendicular
+    // to road and local X (width, W=5.5) runs ALONG the road. With this yaw,
+    // the narrow streetfront faces the road — correct shophouse silhouette.
+    const yaw = Math.atan2(perpX * side, perpZ * side);
+    placements.push({
+      x: px, z: pz, yaw, paletteIdx: k,
+      outX: perpX * side, outZ: perpZ * side,    // away from road
+      alongX: tanX, alongZ: tanZ,                // along road tangent
+    });
   });
 
   if (placements.length === 0) return 0;
@@ -141,42 +160,38 @@ function buildShophouses(scene, region, district, proj, ways) {
     sV.set(W * 1.1, 2.5, D * 1.1); tV.set(p.x, H + 1.25, p.z);
     m.compose(tV, q, sV); roofs.setMatrixAt(i, m);
 
-    // Front face direction is +tangent (perpendicular to perp). Compute
-    // local front offset = -D/2 along forward axis (forward = where the
-    // arcade and pediment face the road). yaw was set to perpVec*side
-    // direction in the placement loop, so "forward" rotates accordingly.
-    const fx = Math.cos(p.yaw);
-    const fz = Math.sin(p.yaw);
-    // Right-axis in local body frame
-    const rx = -fz, rz = fx;
+    // Streetward = -outward (toward road). Arcade columns + lintel + pediment
+    // sit on the building's narrow streetfront face.
+    const inX = -p.outX, inZ = -p.outZ;             // toward road
+    const sideX = p.alongX, sideZ = p.alongZ;       // along road tangent
 
-    // 2 columns positioned at left/right of front edge
+    // 2 columns spaced along the streetfront width (W direction)
     sV.set(1, 1, 1);
     for (let cc = 0; cc < 2; cc++) {
       const sideShift = (cc === 0 ? -1 : 1) * (W * 0.35);
-      const cx2 = p.x + fx * (D * 0.5 + 0.3) + rx * sideShift;
-      const cz2 = p.z + fz * (D * 0.5 + 0.3) + rz * sideShift;
+      const cx2 = p.x + inX * (D * 0.5 + 0.3) + sideX * sideShift;
+      const cz2 = p.z + inZ * (D * 0.5 + 0.3) + sideZ * sideShift;
       tV.set(cx2, 1.5, cz2);
       m.compose(tV, q, sV); columns.setMatrixAt(i * 2 + cc, m);
     }
 
-    // Lintel above arcade
-    const lx = p.x + fx * (D * 0.5 + 0.3);
-    const lz = p.z + fz * (D * 0.5 + 0.3);
+    // Lintel beam spanning the streetfront, just above the columns
+    const lx = p.x + inX * (D * 0.5 + 0.3);
+    const lz = p.z + inZ * (D * 0.5 + 0.3);
     tV.set(lx, 3.15, lz);
     m.compose(tV, q, sV); lintels.setMatrixAt(i, m);
 
-    // Pediment on roof front
-    const px = p.x + fx * (D * 0.55);
-    const pz = p.z + fz * (D * 0.55);
-    tV.set(px, H + 0.6, pz);
+    // Pediment parapet on the streetfront roof edge
+    const pedX = p.x + inX * (D * 0.55);
+    const pedZ = p.z + inZ * (D * 0.55);
+    tV.set(pedX, H + 0.6, pedZ);
     m.compose(tV, q, sV); peds.setMatrixAt(i, m);
 
-    // 2 AC boxes on side walls (alternating sides) at floor 1 and 2
+    // 2 AC boxes on side walls (perpendicular to streetfront)
     for (let ai = 0; ai < 2; ai++) {
-      const side = ai === 0 ? -1 : 1;
-      const ax = p.x + rx * (W * 0.5 + 0.25) * side + fx * (Math.random() - 0.5) * D * 0.5;
-      const az = p.z + rz * (W * 0.5 + 0.25) * side + fz * (Math.random() - 0.5) * D * 0.5;
+      const acSide = ai === 0 ? -1 : 1;
+      const ax = p.x + sideX * (W * 0.5 + 0.25) * acSide + inX * (Math.random() - 0.5) * D * 0.5;
+      const az = p.z + sideZ * (W * 0.5 + 0.25) * acSide + inZ * (Math.random() - 0.5) * D * 0.5;
       const ay = 3.5 + (ai * 3) + Math.random() * 0.6;
       tV.set(ax, ay, az);
       m.compose(tV, q, sV); acs.setMatrixAt(i * 2 + ai, m);
@@ -234,14 +249,22 @@ function buildTowers(scene, region, district) {
   const cz = (region.zMin + region.zMax) / 2;
   const rand = mulberry32(0xC0FFEE);
 
+  let placed = 0;
   for (let i = 0; i < N; i++) {
     const h = heights[i];
     const w = 26 + rand() * 18;
     const d = 26 + rand() * 18;
-    const a = (i / N) * Math.PI * 2 + rand() * 0.4;
-    const r = 18 + (i / N) * (Math.min(region.width, region.depth) * 0.35);
-    const x = cx + Math.cos(a) * r;
-    const z = cz + Math.sin(a) * r;
+    let x, z, ok = false;
+    // Try up to 8 angle/radius offsets to find a non-clashing spot.
+    for (let attempt = 0; attempt < 8 && !ok; attempt++) {
+      const a = (i / N) * Math.PI * 2 + rand() * 0.4 + attempt * 0.6;
+      const r = 18 + (i / N) * (Math.min(region.width, region.depth) * 0.35) + attempt * 8;
+      x = cx + Math.cos(a) * r;
+      z = cz + Math.sin(a) * r;
+      ok = !clashesWithLandmark(x, z, Math.max(w, d) / 2);
+    }
+    if (!ok) continue;     // landmark zone too crowded — skip this tower
+    placed++;
 
     const scheme = schemes[i % schemes.length];
     const bodyMat = new THREE.MeshPhysicalMaterial({
@@ -310,7 +333,7 @@ function buildTowers(scene, region, district) {
 
   if (!scene.userData.cbdWindowsMat) scene.userData.cbdWindowsMat = windowsMat;
 
-  return N;
+  return placed;
 }
 
 // Tower window texture — vertical fenestration bands + spandrel rows +
