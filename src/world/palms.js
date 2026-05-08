@@ -111,18 +111,57 @@ function buildPalmsLegacy(scene) {
 
 // ---- shared helpers (unchanged from original palms.js) ----
 
+// 5 curved leaf ribbons radiating from trunk top. Each ribbon is a 4-segment
+// triangle strip that tapers from 0.4m wide (base) to 0.06m wide (tip) and
+// droops in Y so the silhouette reads as 3D from any side angle — not the
+// paper-flat fan the previous PlaneGeometry produced.
 function buildLeafFan(count) {
   const geos = [];
   for (let i = 0; i < count; i++) {
     const a = (i / count) * Math.PI * 2;
-    const g = new THREE.PlaneGeometry(2.4, 0.55);
-    g.translate(1.2, 0, 0);
+    const g = buildCurvedLeaf();
     g.rotateY(a);
-    g.rotateZ(-0.3);
     g.translate(0, 4.6, 0);
     geos.push(g);
   }
   return mergeGeometries(geos);
+}
+
+function buildCurvedLeaf() {
+  const SEGS = 5;            // 5 sample points → 4 quad strips → 8 triangles
+  const LEN = 2.6;
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+  const indices = [];
+
+  for (let s = 0; s <= SEGS; s++) {
+    const t = s / SEGS;                        // 0..1 along length
+    const x = LEN * t;                         // X = horizontal extent from trunk
+    // Width taper: 0.4m at base → 0.06m at tip. Quadratic for natural shape.
+    const w = 0.4 * (1 - t * t * 0.85);
+    // Droop curve: leaf base level, tip pulled down ~0.5m via cosine.
+    const y = -0.5 * (1 - Math.cos(t * Math.PI)) * 0.5;
+    // Two vertices per sample (left + right side of leaf strip)
+    positions.push(x,  y,  w / 2);             // +Z side
+    positions.push(x,  y, -w / 2);             // -Z side
+    // Normal points up — leaf surface roughly horizontal
+    normals.push(0, 1, 0); normals.push(0, 1, 0);
+    uvs.push(t, 0); uvs.push(t, 1);
+  }
+
+  // Triangle strip: for each segment between sample s and s+1, two triangles.
+  for (let s = 0; s < SEGS; s++) {
+    const a = s * 2, b = s * 2 + 1, c = (s + 1) * 2, d = (s + 1) * 2 + 1;
+    indices.push(a, b, c, b, d, c);
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+  g.setAttribute('normal',   new THREE.BufferAttribute(new Float32Array(normals), 3));
+  g.setAttribute('uv',       new THREE.BufferAttribute(new Float32Array(uvs), 2));
+  g.setIndex(indices);
+  return g;
 }
 
 function mergeGeometries(geos) {
