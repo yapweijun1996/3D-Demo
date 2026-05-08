@@ -18,6 +18,7 @@ import { buildPalms } from './world/palms.js';
 import { buildCones } from './world/cones.js';
 import { buildSigns, animateSigns } from './world/signs.js';
 import { buildStreetLamps } from './world/street-furniture.js';
+import { buildTraffic } from './world/traffic.js';
 
 import { buildCar } from './vehicle/car.js';
 import { buildCarGLB } from './vehicle/car-glb.js';
@@ -113,6 +114,9 @@ async function main() {
   buildCones(scene, assets);
   const signs = buildSigns(scene, proj);
   const lamps = (osm?.ways && proj) ? buildStreetLamps(scene, osm.ways, proj) : null;
+  const traffic = (osm?.ways && proj)
+    ? buildTraffic(scene, osm.ways, proj, { count: 40, getPlayerPos: () => car.group.position })
+    : null;
 
   let car;
   if (CFG.car.useGLB) {
@@ -223,6 +227,7 @@ async function main() {
       scene.userData.cbdWindowsMat.emissiveIntensity = 0.05 + 2.4 * dayNight.phase;
     }
     if (lamps) lamps.tick(now, dayNight);
+    if (traffic) traffic.tick(now, dt);
 
     postfx.render();
     minimap.tick();
