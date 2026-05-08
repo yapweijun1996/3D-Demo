@@ -21,6 +21,13 @@ import * as THREE from 'three';
 const DASH_LEN  = 4.0;          // world units of dash + gap cycle
 const DASH_DUTY = 0.55;         // 55% painted, 45% gap
 
+// Snap projected XZ to a 0.02-unit grid. OSM nodes shared across ways still
+// project to identical XZ (this is a no-op for them), but transient float
+// drift between two builders consuming the same node — or between separate
+// runs of project() — collapses to the same vertex. Closes T-junction gaps.
+const SNAP = 50;                                  // 1 / 0.02
+function snap(x) { return Math.round(x * SNAP) / SNAP; }
+
 // --- emitParallelStrip ---------------------------------------------------
 // opts: { widthMeters: number, offsetMeters?: number, dashed?: boolean }
 // offsetMeters > 0 shifts the ribbon to the LEFT of way direction;
@@ -51,7 +58,10 @@ export function emitParallelStrip(ways, project, opts) {
   }
 
   for (const way of ways) {
-    const pts = way.g.map(([lat, lng]) => project(lat, lng));
+    const pts = way.g.map(([lat, lng]) => {
+      const [x, z] = project(lat, lng);
+      return [snap(x), snap(z)];
+    });
     let s = 0;
     for (let i = 0; i < pts.length - 1; i++) {
       const [x1, z1] = pts[i];
@@ -108,7 +118,10 @@ export function emitParallelStrip(ways, project, opts) {
 export function walkAtSpacing(ways, project, intervalMeters, cb) {
   let k = 0;
   for (let wi = 0; wi < ways.length; wi++) {
-    const pts = ways[wi].g.map(([lat, lng]) => project(lat, lng));
+    const pts = ways[wi].g.map(([lat, lng]) => {
+      const [x, z] = project(lat, lng);
+      return [snap(x), snap(z)];
+    });
     let nextAt = intervalMeters;       // distance from way start to next sample
     let cumArc = 0;                    // distance covered by completed segments
     for (let i = 0; i < pts.length - 1; i++) {

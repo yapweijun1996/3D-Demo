@@ -148,41 +148,69 @@ function createHelix() {
 // 2 hemispheric domes covered in radial spike cones.
 function createEsplanade() {
   const g = new THREE.Group();
-  const domeMat = new THREE.MeshStandardMaterial({
-    color: 0xb89060, roughness: 0.45, metalness: 0.7,
+  const shellMat = new THREE.MeshStandardMaterial({
+    color: 0x9a7846, roughness: 0.55, metalness: 0.45,
+  });
+  // Sun-shade panels — flatter, denser triangular plates instead of long spikes.
+  // Real Esplanade has hundreds of small triangular aluminium fins at varying
+  // tilt angles; our 240-instance approximation reads as "textured durian"
+  // not "spiked mace" from any reasonable distance.
+  const panelMat = new THREE.MeshStandardMaterial({
+    color: 0xc9a463, roughness: 0.40, metalness: 0.65,
   });
 
+  const RADIUS = 30;
+  const PANEL_COUNT = 240;
+  const phi = Math.PI * (3 - Math.sqrt(5));
+  const upY = new THREE.Vector3(0, 1, 0);
+
   for (let s = 0; s < 2; s++) {
-    const sx = (s - 0.5) * 70;        // -35, 35
-    // Hemisphere base
+    const sx = (s - 0.5) * 70;
+    // Higher-tessellation hemisphere base reads less like a 90s game model.
     const dome = new THREE.Mesh(
-      new THREE.SphereGeometry(30, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-      domeMat
+      new THREE.SphereGeometry(RADIUS, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2),
+      shellMat
     );
     dome.position.set(sx, 0, 0);
-    dome.castShadow = true;
+    dome.castShadow = true; dome.receiveShadow = true;
     g.add(dome);
-    // 80 spike cones distributed via fibonacci sphere on hemisphere
-    const spikeGeo = new THREE.ConeGeometry(1.4, 3.5, 4);
-    const spikes = new THREE.InstancedMesh(spikeGeo, domeMat, 80);
+
+    // ConeGeometry(0.85, 1.4, 3) — short 3-sided pyramid feels like a
+    // facetted shade panel. Tilt 18° toward the dome surface so panels
+    // lay against the shell rather than spike straight out.
+    const panelGeo = new THREE.ConeGeometry(0.85, 1.4, 3);
+    const panels = new THREE.InstancedMesh(panelGeo, panelMat, PANEL_COUNT);
+    panels.castShadow = true;
     const m = new THREE.Matrix4();
-    const phi = Math.PI * (3 - Math.sqrt(5));
-    for (let i = 0; i < 80; i++) {
-      const yT = 1 - (i / 79);                 // 1 → 0, top to base of upper hemi
+    const tmp = new THREE.Vector3();
+    const tmpQ = new THREE.Quaternion();
+    const tiltAxis = new THREE.Vector3();
+    const tiltQ = new THREE.Quaternion();
+    for (let i = 0; i < PANEL_COUNT; i++) {
+      const yT = 1 - (i / (PANEL_COUNT - 1));
       const r = Math.sqrt(1 - yT * yT);
       const theta = phi * i;
-      const sxL = Math.cos(theta) * r * 30;
-      const yL = yT * 30;
-      const szL = Math.sin(theta) * r * 30;
-      // Align spike outward from sphere center
-      const dir = new THREE.Vector3(sxL, yL, szL).normalize();
-      const pos = new THREE.Vector3(sx + sxL + dir.x * 1.5, yL + dir.y * 1.5, szL + dir.z * 1.5);
-      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-      m.compose(pos, q, new THREE.Vector3(1, 1, 1));
-      spikes.setMatrixAt(i, m);
+      const sxL = Math.cos(theta) * r * RADIUS;
+      const yL = yT * RADIUS;
+      const szL = Math.sin(theta) * r * RADIUS;
+
+      tmp.set(sxL, yL, szL).normalize();
+      // Position panel base flush with the dome surface.
+      const px = sx + tmp.x * RADIUS;
+      const py =       tmp.y * RADIUS;
+      const pz =       tmp.z * RADIUS;
+      tmpQ.setFromUnitVectors(upY, tmp);
+      // Apply small tilt around a tangent axis so the panel lies against the
+      // shell (mimics the real shade panels' inset angle).
+      tiltAxis.set(-tmp.z, 0, tmp.x).normalize();   // any tangent
+      const tilt = 0.32 + ((i * 13) % 7) * 0.018;   // ~18-25°, hash-jittered
+      tiltQ.setFromAxisAngle(tiltAxis, tilt);
+      tmpQ.premultiply(tiltQ);
+      m.compose(new THREE.Vector3(px, py, pz), tmpQ, new THREE.Vector3(1, 1, 1));
+      panels.setMatrixAt(i, m);
     }
-    spikes.instanceMatrix.needsUpdate = true;
-    g.add(spikes);
+    panels.instanceMatrix.needsUpdate = true;
+    g.add(panels);
   }
   return g;
 }
