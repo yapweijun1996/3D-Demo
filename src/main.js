@@ -213,6 +213,15 @@ async function main() {
     dayNight.setMode(target === 'night' ? 'night' : 'day');
     return dayNight.mode;
   };
+  // Read-only inspector for debugging T39: phase + mode + lerping flag.
+  window.__sgDayState = () => ({
+    mode: dayNight.mode,
+    phase: dayNight.phase,
+    lerping: dayNight.lerping,
+    lerpT: dayNight.lerpT,
+    tickerCount: tickers.length,
+    bgIsNight: scene.background?.uuid && scene.background?.uuid !== scene.userData.dayBgUuid,
+  });
   window.__sgTopDown = (on, alt) => {
     topDown = on === undefined ? !topDown : !!on;
     if (alt) topDownAlt = alt;

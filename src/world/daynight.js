@@ -155,6 +155,7 @@ export function bindDayNight(scene, renderer, pmrem, lights, tickers) {
   const api = {
     get mode() { return mode; },
     get lerping() { return lerpT < 1; },
+    get lerpT() { return lerpT; },              // debug — raw progress 0..1
     // 0 = full day, 1 = full night, smoothly eased during transitions.
     // Buildings/lampposts read this each frame to drive emissive intensity
     // so window-grid glow fades in with the sky going dark.
