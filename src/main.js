@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { bindInput } from './input.js';
+import { bindInput, keys } from './input.js';
 
 import { buildClouds } from './world/clouds.js';
 import { buildLighting } from './world/lighting.js';
@@ -168,7 +168,7 @@ async function main() {
   bindStartOverlay();
   maybeBindTouchControls();
   const stats = createStats(renderer);
-  const minimap = createMinimap(car, signs, osm?.minimapSegs);
+  const minimap = createMinimap(car, signs, osm?.minimapSegs, traffic);
   const speedo = createSpeedometer();
   createControlsHint();
   const infoBar = createInfoBar({ totalLandmarks: signs.length });
@@ -214,6 +214,14 @@ async function main() {
     return dayNight.mode;
   };
   // Read-only inspector for debugging T39: phase + mode + lerping flag.
+  // Drive simulation for regression testing — bypasses keyboard event isTrusted
+  // checks. Pass a duration (s) and a key set; releases all on completion.
+  window.__sgDrive = async ({ keys: setKeys = ['up'], seconds = 3 } = {}) => {
+    for (const k of setKeys) keys[k] = true;
+    await new Promise((r) => setTimeout(r, seconds * 1000));
+    for (const k of setKeys) keys[k] = false;
+    return { drove: setKeys, for: seconds };
+  };
   window.__sgDayState = () => ({
     mode: dayNight.mode,
     phase: dayNight.phase,

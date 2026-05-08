@@ -144,6 +144,7 @@ export function buildTraffic(scene, ways, project, opts = {}) {
       const yaw = Math.atan2(tx, tz);
       q.setFromAxisAngle(yAxis, yaw);
       tV.set(laneX, (c.path.surfaceY ?? 0.12) + RIDE_HEIGHT, laneZ);
+      c.lastX = laneX; c.lastZ = laneZ;     // cached for minimap dots
 
       if (d2 > DESPAWN_DIST2) {
         // Hide via zero-scale matrix (InstancedMesh has no per-inst visibility)

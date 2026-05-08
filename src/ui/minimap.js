@@ -6,7 +6,7 @@ import { injectTheme, TOKENS } from './theme.js';
 //   - compass rose with rotating N indicator (always points world-north)
 //   - water + roads + signs + iconic landmarks colored by district
 //   - bigger heading triangle for the player
-export function createMinimap(car, signs, roadSegs = null) {
+export function createMinimap(car, signs, roadSegs = null, traffic = null) {
   injectTheme();
   const SIZE = 184;
   const wrap = document.createElement('div');
@@ -85,6 +85,20 @@ export function createMinimap(car, signs, roadSegs = null) {
         ctx.moveTo(m1x, m1y); ctx.lineTo(m2x, m2y);
       }
       ctx.stroke();
+    }
+
+    // NPC traffic dots — small yellow specks moving along road network
+    if (traffic?.cars) {
+      ctx.fillStyle = 'rgba(245,179,68,0.85)';
+      for (const c of traffic.cars) {
+        if (c.lastX === undefined) continue;
+        const [mx, my] = w2m(c.lastX, c.lastZ);
+        // skip if outside the minimap circle to avoid drawing offscreen
+        if ((mx - half) ** 2 + (my - half) ** 2 > half * half) continue;
+        ctx.beginPath();
+        ctx.arc(mx, my, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     // signs / landmarks

@@ -50,7 +50,7 @@ function buildDistrictBuildings(scene, proj, ways) {
     }
     totalAdded += added;
   }
-  console.log(`[buildings] +${totalAdded} district buildings (towers/colonial/mall/shophouse)`);
+  logPlacement('buildings', 'districts', { placed: totalAdded });
 }
 
 // ---- T08 stubs (T09/T10 expand) ----

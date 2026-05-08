@@ -68,7 +68,8 @@ export async function buildSGLandmarks(scene, proj) {
       if (g.userData.tubeMatB) scene.userData.helixTubeMatB = g.userData.tubeMatB;
     }
   }
-  console.log(`[landmarks-sg] placed ${groups.length} iconic landmarks`);
+  const { logPlacement } = await import('./diag.js');
+  logPlacement('landmarks-sg', 'iconic', { placed: groups.length });
   return groups;
 }
 
